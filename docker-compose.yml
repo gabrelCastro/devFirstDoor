@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-dev_first_door}
+      POSTGRES_USER: ${DB_USER:-dev_first_door}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_first_door}
+    volumes:
+      - dev_first_door_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dev_first_door} -d ${DB_NAME:-dev_first_door}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-dev_first_door}
+      DB_USER: ${DB_USER:-dev_first_door}
+      DB_PASSWORD: ${DB_PASSWORD:-dev_first_door}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+
+volumes:
+  dev_first_door_db_data:

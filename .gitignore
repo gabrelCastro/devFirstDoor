@@ -1,0 +1,17 @@
+.env
+
+# Backend (Maven)
+backend/target/
+backend/data/
+
+# Frontend (Node/Vite)
+frontend/node_modules/
+frontend/dist/
+
+# OS / editores
+.DS_Store
+.idea/
+.vscode/
+
+# Ferramentas locais
+.claude/

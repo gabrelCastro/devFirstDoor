@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: dev-first-door
+  datasource:
+    url: jdbc:h2:file:./data/dev-first-door;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  crawler:
+    gupy:
+      base-url: https://employability-portal.gupy.io/api/v1/jobs
+      page-size: 100
+      request-delay-ms: 1000
+      max-paginas-por-termo: 5
+
+logging:
+  level:
+    com.devfirstdoor: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:db}:${DB_PORT:5432}/${DB_NAME:dev_first_door}
+    username: ${DB_USER:dev_first_door}
+    password: ${DB_PASSWORD:dev_first_door}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

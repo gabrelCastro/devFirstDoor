@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .fio { stroke: #0f2436; opacity: 0.55; }
+    .no-base { fill: #eaf1f6; stroke: #0f2436; }
+    .no-sinal { fill: #0a6c86; }
+    @media (prefers-color-scheme: dark) {
+      .fio { stroke: #dbe7ef; }
+      .no-base { fill: #0a1420; stroke: #dbe7ef; }
+      .no-sinal { fill: #2ec4de; }
+    }
+  </style>
+  <line class="fio" x1="6" y1="25" x2="16" y2="8" stroke-width="1.6" />
+  <line class="fio" x1="16" y1="27" x2="16" y2="8" stroke-width="1.6" />
+  <line class="fio" x1="26" y1="25" x2="16" y2="8" stroke-width="1.6" />
+  <circle class="no-base" cx="6" cy="25" r="2.1" stroke-width="1.6" />
+  <circle class="no-base" cx="16" cy="27" r="2.1" stroke-width="1.6" />
+  <circle class="no-base" cx="26" cy="25" r="2.1" stroke-width="1.6" />
+  <circle class="no-sinal" cx="16" cy="8" r="3.2" />
+</svg>
