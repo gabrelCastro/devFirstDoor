@@ -1,5 +1,6 @@
 package com.devfirstdoor.runner;
 
+import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.service.ColetaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,7 @@ public class ColetaInicialRunner implements CommandLineRunner {
     public void run(String... args) {
         Thread coleta = new Thread(() -> {
             log.info("Iniciando coleta inicial de vagas...");
-            coletaService.executarTodos();
+            coletaService.executarTodos(OrigemColeta.INICIAL);
         }, "coleta-inicial");
         coleta.setDaemon(true);
         coleta.start();

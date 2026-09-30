@@ -2,6 +2,7 @@ package com.devfirstdoor.service;
 
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.domain.NivelVaga;
+import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +31,9 @@ class ExpiracaoVagasServiceTest {
 
     @Autowired
     private ExpiracaoVagasService expiracaoVagasService;
+
+    @Autowired
+    private HistoricoColetaService historicoColetaService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -106,8 +110,8 @@ class ExpiracaoVagasServiceTest {
                 return coleta.get();
             }
         };
-        return new ColetaService(List.of(crawler), deduplicacaoService, vagaRepository, expiracaoVagasService)
-                .executarTodos();
+        return new ColetaService(List.of(crawler), deduplicacaoService, vagaRepository, expiracaoVagasService,
+                historicoColetaService).executarTodos(OrigemColeta.MANUAL);
     }
 
     private void salvar(String titulo, String fonte, LocalDateTime dataColeta) {

@@ -104,6 +104,22 @@ class LinkedinCrawlerTest {
     }
 
     @Test
+    void contarEncontradas_deveSomarAsVagasJaSalvasQueNaoSaoDevolvidas() {
+        properties.setTermosBusca(List.of("java júnior"));
+        LinkedinJobDto jaSalva = job("10", "Desenvolvedor Java Júnior");
+        String hash = deduplicacaoService.calcularHash(jaSalva.titulo(), jaSalva.empresa(), LinkedinJobMapper.FONTE);
+        when(client.buscarTodasAsPaginas("java júnior")).thenReturn(List.of(jaSalva, job("11", "Programador Java Jr")));
+        when(vagaRepository.existsByHashDeduplicacao(hash)).thenReturn(true);
+        when(client.buscarDescricao("11")).thenReturn(DESCRICAO_JAVA);
+        LinkedinCrawler crawler = crawler();
+
+        List<Vaga> vagas = crawler.coletar();
+
+        assertThat(vagas).extracting(Vaga::getTitulo).containsExactly("Programador Java Jr");
+        assertThat(crawler.contarEncontradas(vagas)).isEqualTo(2);
+    }
+
+    @Test
     void coletar_semVagasJaSalvas_naoDeveAtualizarVisitas() {
         properties.setTermosBusca(List.of("java júnior"));
         when(client.buscarTodasAsPaginas("java júnior")).thenReturn(List.of());

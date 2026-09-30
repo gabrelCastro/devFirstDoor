@@ -1,6 +1,12 @@
 package com.devfirstdoor.controller;
 
+import com.devfirstdoor.domain.ExecucaoColeta;
+import com.devfirstdoor.domain.ExecucaoFonte;
+import com.devfirstdoor.domain.OrigemColeta;
+import com.devfirstdoor.repository.ExecucaoColetaRepository;
+import com.devfirstdoor.repository.ExecucaoFonteRepository;
 import com.devfirstdoor.service.ColetaService;
+import com.devfirstdoor.service.HistoricoColetaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,9 +16,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +42,15 @@ class AdminControllerTest {
     /** Mock: a coleta real faria requisições às fontes. */
     @MockitoBean
     private ColetaService coletaService;
+
+    @Autowired
+    private HistoricoColetaService historicoColetaService;
+
+    @Autowired
+    private ExecucaoColetaRepository execucaoRepository;
+
+    @Autowired
+    private ExecucaoFonteRepository execucaoFonteRepository;
 
     @Test
     void apiPublica_deveContinuarAbertaSemCredencial() throws Exception {
@@ -67,12 +85,12 @@ class AdminControllerTest {
     void coletas_semCredencial_naoDeveRodarAColeta() throws Exception {
         mockMvc.perform(post("/api/admin/coletas"))
                 .andExpect(status().isUnauthorized());
-        verify(coletaService, never()).executarTodos();
+        verify(coletaService, never()).executarTodos(any());
     }
 
     @Test
     void coletas_credencialCerta_deveRodarAColetaMesmoSemTokenCsrf() throws Exception {
-        when(coletaService.executarTodos()).thenReturn(Map.of("GUPY", 3));
+        when(coletaService.executarTodos(OrigemColeta.MANUAL)).thenReturn(Map.of("GUPY", 3));
 
         mockMvc.perform(post("/api/admin/coletas").header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
                 .andExpect(status().isOk())
@@ -80,10 +98,38 @@ class AdminControllerTest {
     }
 
     @Test
+    void execucoes_semCredencial_deveResponder401() throws Exception {
+        mockMvc.perform(get("/api/admin/execucoes"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void execucoes_credencialCerta_deveDevolverOHistoricoPaginadoComAsFontes() throws Exception {
+        execucaoFonteRepository.deleteAll();
+        execucaoRepository.deleteAll();
+        historicoColetaService.iniciar(OrigemColeta.AGENDADA);
+        ExecucaoColeta manual = historicoColetaService.iniciar(OrigemColeta.MANUAL);
+        ExecucaoFonte gupy = ExecucaoFonte.sucesso(manual, "GUPY", LocalDateTime.now(), 12, 4, 2);
+        historicoColetaService.registrar(gupy);
+        historicoColetaService.finalizar(manual, List.of(gupy));
+
+        mockMvc.perform(get("/api/admin/execucoes").param("size", "1")
+                        .header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].origem").value("MANUAL"))
+                .andExpect(jsonPath("$.content[0].status").value("SUCESSO"))
+                .andExpect(jsonPath("$.content[0].fontes[0].fonte").value("GUPY"))
+                .andExpect(jsonPath("$.content[0].fontes[0].encontradas").value(12))
+                .andExpect(jsonPath("$.content[0].fontes[0].novas").value(4))
+                .andExpect(jsonPath("$.content[0].fontes[0].expiradas").value(2));
+    }
+
+    @Test
     void coletarPelaApiPublica_naoDeveExistirMais() throws Exception {
         mockMvc.perform(post("/api/vagas/coletar"))
                 .andExpect(status().is4xxClientError());
-        verify(coletaService, never()).executarTodos();
+        verify(coletaService, never()).executarTodos(any());
     }
 
     @Test

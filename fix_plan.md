@@ -44,7 +44,12 @@ Faça sempre o primeiro `[ ]`, um por iteração.
   credencial certa = 200; sem `ADMIN_PASSWORD` configurado = 401 mesmo com qualquer credencial;
   `POST /api/vagas/coletar` não existe mais.
 
-## 2. [ ] Histórico de execuções de coleta
+## 2. [x] Histórico de execuções de coleta
+
+> Feito: entidades `ExecucaoColeta`/`ExecucaoFonte` gravadas pelo `HistoricoColetaService` (execução
+> criada no início, fonte a fonte, status geral SUCESSO/PARCIAL/ERRO), `executarTodos(OrigemColeta)`
+> nos runners e no admin, `VagaCrawler.contarEncontradas` (LinkedIn soma as já salvas),
+> `GET /api/admin/execucoes` paginado e testes em `ColetaServiceTest`/`HistoricoColetaServiceTest`/`AdminControllerTest`.
 
 - Entidades `ExecucaoColeta` (id, origem `INICIAL|AGENDADA|MANUAL`, início, fim, status geral) e
   `ExecucaoFonte` (execução, fonte, início, fim, status `SUCESSO|ERRO`, encontradas, novas,

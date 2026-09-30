@@ -48,6 +48,7 @@ public class LinkedinCrawler implements VagaCrawler {
     private final LinkedinJobMapper mapper = new LinkedinJobMapper();
     private final DeduplicacaoService deduplicacaoService;
     private final Set<String> hashesSemJava = ConcurrentHashMap.newKeySet();
+    private volatile int jaSalvasNaUltimaColeta;
 
     public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
                            DeduplicacaoService deduplicacaoService) {
@@ -90,6 +91,12 @@ public class LinkedinCrawler implements VagaCrawler {
         return vagas;
     }
 
+    /** As devolvidas são só as novas; as já salvas que continuam na busca também contam. */
+    @Override
+    public int contarEncontradas(List<Vaga> devolvidas) {
+        return devolvidas.size() + jaSalvasNaUltimaColeta;
+    }
+
     /**
      * Vagas de estágio/júnior em tecnologia que ainda não existem no banco. As que já
      * existem não são devolvidas (para não reler a descrição), então têm a visita
@@ -114,6 +121,7 @@ public class LinkedinCrawler implements VagaCrawler {
             }
         }
         deduplicacaoService.registrarVisita(hashesJaSalvos, inicio);
+        jaSalvasNaUltimaColeta = hashesJaSalvos.size();
         return candidatas;
     }
 

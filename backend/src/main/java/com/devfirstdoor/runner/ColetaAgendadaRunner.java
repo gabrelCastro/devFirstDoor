@@ -1,5 +1,6 @@
 package com.devfirstdoor.runner;
 
+import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.service.ColetaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,6 @@ public class ColetaAgendadaRunner {
     @Scheduled(fixedDelayString = "${app.crawler.intervalo:6h}", initialDelayString = "${app.crawler.intervalo:6h}")
     public void coletar() {
         log.info("Iniciando coleta agendada de vagas...");
-        coletaService.executarTodos();
+        coletaService.executarTodos(OrigemColeta.AGENDADA);
     }
 }
