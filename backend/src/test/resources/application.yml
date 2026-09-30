@@ -12,3 +12,5 @@ spring:
 app:
   crawler:
     run-on-startup: false
+    agendamento:
+      enabled: false

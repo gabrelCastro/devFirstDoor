@@ -17,6 +17,10 @@ spring:
 
 app:
   crawler:
+    # Intervalo entre coletas agendadas (ex: 6h, 30m, PT6H).
+    intervalo: 6h
+    agendamento:
+      enabled: true
     gupy:
       base-url: https://employability-portal.gupy.io/api/v1/jobs
       page-size: 100

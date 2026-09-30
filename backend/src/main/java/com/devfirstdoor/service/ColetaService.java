@@ -10,11 +10,16 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Roda todos os crawlers cadastrados, isolando falhas: se um crawler quebrar
  * (site fora do ar, mudança de HTML/API), o erro é logado e os demais crawlers
  * continuam normalmente.
+ *
+ * Só uma coleta roda por vez: a inicial, a agendada e a manual (POST /api/vagas/coletar)
+ * podem coincidir, e duas juntas dobrariam as requisições às fontes e poderiam salvar
+ * a mesma vaga duas vezes (a deduplicação só enxerga o que já está no banco).
  */
 @Service
 public class ColetaService {
@@ -24,6 +29,7 @@ public class ColetaService {
     private final List<VagaCrawler> crawlers;
     private final DeduplicacaoService deduplicacaoService;
     private final VagaRepository vagaRepository;
+    private final AtomicBoolean emExecucao = new AtomicBoolean(false);
 
     public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService, VagaRepository vagaRepository) {
         this.crawlers = crawlers;
@@ -31,7 +37,23 @@ public class ColetaService {
         this.vagaRepository = vagaRepository;
     }
 
+    /**
+     * Roda todos os crawlers. Se já houver uma coleta em andamento, esta é ignorada
+     * e devolve um mapa vazio.
+     */
     public Map<String, Integer> executarTodos() {
+        if (!emExecucao.compareAndSet(false, true)) {
+            log.warn("Já existe uma coleta em andamento; esta será ignorada");
+            return Map.of();
+        }
+        try {
+            return executarCrawlers();
+        } finally {
+            emExecucao.set(false);
+        }
+    }
+
+    private Map<String, Integer> executarCrawlers() {
         Map<String, Integer> vagasNovasPorFonte = new LinkedHashMap<>();
 
         for (VagaCrawler crawler : crawlers) {

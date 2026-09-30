@@ -3,7 +3,12 @@
 Legenda: `[ ]` a fazer · `[x]` feito · `[!]` travado (motivo ao lado).
 Faça sempre o primeiro `[ ]`, um por iteração.
 
-## 1. [ ] Coleta agendada
+## 1. [x] Coleta agendada
+
+Feito: `runner/ColetaAgendadaRunner` (`@Scheduled` com `app.crawler.intervalo`, padrão 6h, e
+`app.crawler.agendamento.enabled`, desligado nos testes); `ColetaService.executarTodos()` usa um
+`AtomicBoolean` e ignora (com log, devolvendo mapa vazio) coletas que chegam com outra em andamento;
+testes em `ColetaServiceTest`.
 
 Hoje a coleta só roda uma vez, quando o backend sobe (`runner/ColetaInicialRunner`).
 
