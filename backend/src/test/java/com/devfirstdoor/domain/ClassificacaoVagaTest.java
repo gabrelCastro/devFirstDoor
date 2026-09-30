@@ -39,9 +39,17 @@ class ClassificacaoVagaTest {
 
     @Test
     void isInternacional_deveIgnorarOutrasFontesMesmoComTextoParecido() {
-        // Gupy e ProgramaThor são boards 100% nacionais — a checagem só vale pra RemoteOK.
+        // Gupy e ProgramaThor são boards 100% nacionais — a checagem só vale pras fontes globais.
         assertThat(ClassificacaoVaga.isInternacional("GUPY", "Remoto (São Paulo, São Paulo)")).isFalse();
         assertThat(ClassificacaoVaga.isInternacional("PROGRAMATHOR", "São Paulo, SP")).isFalse();
+    }
+
+    @Test
+    void isInternacional_deveValerTambemParaGreenhouseELever() {
+        assertThat(ClassificacaoVaga.isInternacional("GREENHOUSE", "Remoto (Remote - United States)")).isTrue();
+        assertThat(ClassificacaoVaga.isInternacional("LEVER", "Remoto (Remote, Canada)")).isTrue();
+        assertThat(ClassificacaoVaga.isInternacional("LEVER", "Remoto (Remote - Brazil)")).isFalse();
+        assertThat(ClassificacaoVaga.isInternacional("GREENHOUSE", "Remoto")).isFalse();
     }
 
     @Test

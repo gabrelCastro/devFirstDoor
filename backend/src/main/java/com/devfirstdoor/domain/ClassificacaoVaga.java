@@ -1,9 +1,12 @@
 package com.devfirstdoor.domain;
 
+import com.devfirstdoor.crawler.greenhouse.GreenhouseJobMapper;
+import com.devfirstdoor.crawler.lever.LeverJobMapper;
 import com.devfirstdoor.crawler.remoteok.RemoteOkJobMapper;
 import com.devfirstdoor.util.TextNormalizer;
 
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,14 +17,18 @@ import java.util.regex.Pattern;
  */
 public final class ClassificacaoVaga {
 
-    private static final Pattern LOCAL_REMOTEOK = Pattern.compile("^Remoto \\((.+)\\)$");
+    private static final Pattern LOCAL_COM_TEXTO_DA_FONTE = Pattern.compile("^Remoto \\((.+)\\)$");
+
+    /** Fontes com vagas do mundo inteiro, em que o local pode restringir a outro país. */
+    private static final Set<String> FONTES_GLOBAIS = Set.of(
+            RemoteOkJobMapper.FONTE, GreenhouseJobMapper.FONTE, LeverJobMapper.FONTE);
 
     /**
-     * A RemoteOK agrega vagas remotas do mundo inteiro, e várias delas restringem
-     * candidaturas a um país/região específico que não inclui o Brasil. Gupy e
-     * ProgramaThor são boards 100% nacionais, então essa checagem só se aplica a
-     * vagas da RemoteOK. Heurística por palavra-chave sobre o texto de localização
-     * bruto da API (preservado dentro de "Remoto (...)" pelo RemoteOkJobMapper) —
+     * A RemoteOK (e as empresas do Greenhouse e do Lever) têm vagas remotas do mundo
+     * inteiro, e várias delas restringem candidaturas a um país/região específico que
+     * não inclui o Brasil. Gupy e ProgramaThor são boards 100% nacionais, então essa
+     * checagem só se aplica às FONTES_GLOBAIS. Heurística por palavra-chave sobre o
+     * texto de localização bruto da API (preservado dentro de "Remoto (...)" pelos mappers) —
      * na dúvida (texto vazio, "Worldwide"/"Anywhere", ou algo não reconhecido) a
      * vaga é considerada aberta, para não esconder oportunidades por engano.
      */
@@ -41,7 +48,7 @@ public final class ClassificacaoVaga {
 
     /**
      * Todas as fontes marcam vagas remotas com o prefixo "Remoto" no local
-     * (Gupy, ProgramaThor e RemoteOK só coletam remotas; o LinkedIn prefixa
+     * (Gupy, ProgramaThor, RemoteOK, Greenhouse e Lever só coletam remotas; o LinkedIn prefixa
      * as que a descrição indica como remotas).
      */
     public static boolean isRemoto(String local) {
@@ -49,10 +56,10 @@ public final class ClassificacaoVaga {
     }
 
     public static boolean isInternacional(String fonte, String local) {
-        if (!RemoteOkJobMapper.FONTE.equals(fonte) || local == null) {
+        if (!FONTES_GLOBAIS.contains(fonte) || local == null) {
             return false;
         }
-        Matcher match = LOCAL_REMOTEOK.matcher(local);
+        Matcher match = LOCAL_COM_TEXTO_DA_FONTE.matcher(local);
         if (!match.matches()) {
             return false;
         }

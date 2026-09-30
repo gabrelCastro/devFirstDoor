@@ -73,7 +73,14 @@ registrada); `ColetaServiceTest` ganhou o caso de um crawler com exceção sem i
 - `ColetaService`: um crawler lançando exceção não impede os outros de salvar.
 - Use subclasses/stubs dos clients ou Mockito (já vem no `spring-boot-starter-test`); sem rede.
 
-## 5. [ ] Novas fontes: Greenhouse e Lever
+## 5. [x] Novas fontes: Greenhouse e Lever
+
+Feito: `crawler/greenhouse` e `crawler/lever` (client, DTOs, mapper, classifier, properties, robots.txt),
+`app.crawler.{greenhouse,lever}.empresas` vazias por padrão (crawler não faz nada nem consulta o
+robots.txt); nível/tecnologia pelo título, Java no título + conteúdo (HTML escapado do Greenhouse;
+`descriptionPlain`/`lists`/`additionalPlain` do Lever), remoto pelo local (Greenhouse) ou
+`workplaceType` com local como reserva (Lever); `ClassificacaoVaga.isInternacional` vale também para as
+duas; testes com JSON de fixture em `GreenhouseCrawlerTest` e `LeverCrawlerTest`.
 
 APIs públicas de vagas, feitas para consumo externo:
 - Greenhouse: `https://boards-api.greenhouse.io/v1/boards/{empresa}/jobs?content=true`

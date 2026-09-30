@@ -28,6 +28,12 @@ app:
       page-size: 100
       request-delay-ms: 1000
       max-paginas-por-termo: 5
+    # Greenhouse e Lever não têm busca entre empresas: liste os identificadores dos
+    # boards (boards.greenhouse.io/{empresa}, jobs.lever.co/{empresa}). Vazio = não coleta.
+    greenhouse:
+      empresas: []
+    lever:
+      empresas: []
     linkedin:
       # Busca pública (sem login). Ignora o robots.txt do LinkedIn; ligue só para uso pessoal.
       enabled: ${LINKEDIN_ENABLED:false}
