@@ -12,6 +12,7 @@ import {
 // Polling mais rápido só enquanto há coleta rodando, para acompanhar o progresso.
 const INTERVALO_RODANDO_MS = 3000
 const INTERVALO_PARADO_MS = 30000
+const DURACAO_AVISO_MS = 6000
 
 function CardCrawler({ crawler, agendamentoPausado, bloqueado, acao, aoColetar }) {
   const ultima = crawler.ultimaExecucao
@@ -127,6 +128,13 @@ export default function Painel({ aoExpirar }) {
       clearTimeout(temporizador)
     }
   }, [versao, aoExpirar])
+
+  // Confirmações somem sozinhas; erros ficam até a próxima ação.
+  useEffect(() => {
+    if (aviso?.tipo !== 'ok') return
+    const temporizador = setTimeout(() => setAviso(null), DURACAO_AVISO_MS)
+    return () => clearTimeout(temporizador)
+  }, [aviso])
 
   async function executar(chave, caminho, textoSucesso) {
     setAcao(chave)

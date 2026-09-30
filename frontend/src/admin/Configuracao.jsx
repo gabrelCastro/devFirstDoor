@@ -1,10 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ErroNaoAutenticado, chamarAdmin } from './api'
 
 const FONTES_SIMPLES = [
   { id: 'PROGRAMATHOR', nome: 'ProgramaThor' },
   { id: 'REMOTEOK', nome: 'RemoteOK' },
 ]
+
+const CAMPOS_NUMERICOS = {
+  intervaloColetaMinutos: 'intervalo (minutos)',
+  diasParaExpirar: 'dias para expirar',
+  pausaLinkedinMs: 'pausa entre requisições do LinkedIn',
+  variacaoPausaLinkedinMs: 'variação da pausa do LinkedIn',
+}
+
+// Campo apagado fica vazio enquanto a pessoa digita, em vez de virar 0 na hora.
+function numeroOuVazio(texto) {
+  return texto === '' ? '' : Number(texto)
+}
+
+// Enter num campo de lista não deve enviar (e salvar) o formulário inteiro.
+function ignorarEnter(evento) {
+  if (evento.key === 'Enter') evento.preventDefault()
+}
 
 const MOTIVO_LABEL = {
   DADOS_INCOMPLETOS: 'dados incompletos',
@@ -132,8 +149,11 @@ function ListaEditavel({ titulo, valores, aoMudar, testeAts, aoExpirar }) {
               value={valor}
               aria-label={`${titulo} ${indice + 1}`}
               onChange={(e) => alterar(indice, e.target.value)}
+              onKeyDown={ignorarEnter}
             />
-            {testeAts && <TesteEmpresa ats={testeAts} empresa={valor} aoExpirar={aoExpirar} />}
+            {/* A key pelo valor descarta o resultado do teste quando a empresa da linha muda
+                (edição ou remoção de uma linha acima), para não mostrá-lo ao lado de outra. */}
+            {testeAts && <TesteEmpresa key={valor} ats={testeAts} empresa={valor} aoExpirar={aoExpirar} />}
             <button
               type="button"
               className="botao-limpar"
@@ -169,8 +189,10 @@ function SecaoFonte({ nome, fonte, configuracao, aoAlternar, children }) {
   )
 }
 
-export default function Configuracao({ aoExpirar }) {
+export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
   const [configuracao, setConfiguracao] = useState(null)
+  // Cópia do que está salvo no servidor, para saber se há alterações pendentes.
+  const [salva, setSalva] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState(null)
@@ -179,7 +201,9 @@ export default function Configuracao({ aoExpirar }) {
     let cancelado = false
     chamarAdmin('/configuracao')
       .then((dados) => {
-        if (!cancelado) setConfiguracao(dados)
+        if (cancelado) return
+        setConfiguracao(dados)
+        setSalva(JSON.stringify(dados))
       })
       .catch((e) => {
         if (cancelado) return
@@ -194,6 +218,26 @@ export default function Configuracao({ aoExpirar }) {
     }
   }, [aoExpirar])
 
+  const pendente = useMemo(
+    () => configuracao != null && salva != null && JSON.stringify(configuracao) !== salva,
+    [configuracao, salva],
+  )
+
+  useEffect(() => {
+    aoMudarPendencia?.(pendente)
+  }, [pendente, aoMudarPendencia])
+
+  useEffect(() => () => aoMudarPendencia?.(false), [aoMudarPendencia])
+
+  useEffect(() => {
+    if (!pendente) return
+    function avisar(evento) {
+      evento.preventDefault()
+    }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [pendente])
+
   function alterar(campo, valor) {
     setConfiguracao((atual) => ({ ...atual, [campo]: valor }))
   }
@@ -207,14 +251,22 @@ export default function Configuracao({ aoExpirar }) {
 
   async function salvar(evento) {
     evento.preventDefault()
+    const vazios = Object.entries(CAMPOS_NUMERICOS)
+      .filter(([campo]) => configuracao[campo] === '')
+      .map(([, rotulo]) => rotulo)
+    if (vazios.length > 0) {
+      setMensagem({ tipo: 'erro', texto: `Preencha: ${vazios.join(', ')}.` })
+      return
+    }
     setSalvando(true)
     setMensagem(null)
     try {
-      const salva = await chamarAdmin('/configuracao', {
+      const resposta = await chamarAdmin('/configuracao', {
         method: 'PUT',
         corpo: configuracao,
       })
-      setConfiguracao(salva)
+      setConfiguracao(resposta)
+      setSalva(JSON.stringify(resposta))
       setMensagem({ tipo: 'ok', texto: 'Configuração salva. Ela valerá na próxima coleta.' })
     } catch (e) {
       if (e instanceof ErroNaoAutenticado) aoExpirar()
@@ -240,8 +292,8 @@ export default function Configuracao({ aoExpirar }) {
           <h2 className="admin-secao-titulo">configuração</h2>
           <p className="admin-fraco">Alterações entram em vigor na coleta seguinte.</p>
         </div>
-        <button type="submit" className="admin-botao admin-botao-primario" disabled={salvando}>
-          {salvando ? 'salvando...' : 'salvar configuração'}
+        <button type="submit" className="admin-botao admin-botao-primario" disabled={salvando || !pendente}>
+          {salvando ? 'salvando...' : pendente ? 'salvar configuração' : 'nada a salvar'}
         </button>
       </div>
 
@@ -260,7 +312,7 @@ export default function Configuracao({ aoExpirar }) {
               type="number"
               min="30"
               value={configuracao.intervaloColetaMinutos}
-              onChange={(e) => alterar('intervaloColetaMinutos', Number(e.target.value))}
+              onChange={(e) => alterar('intervaloColetaMinutos', numeroOuVazio(e.target.value))}
             />
           </label>
           <label className="admin-campo">
@@ -269,7 +321,7 @@ export default function Configuracao({ aoExpirar }) {
               type="number"
               min="1"
               value={configuracao.diasParaExpirar}
-              onChange={(e) => alterar('diasParaExpirar', Number(e.target.value))}
+              onChange={(e) => alterar('diasParaExpirar', numeroOuVazio(e.target.value))}
             />
           </label>
         </div>
@@ -310,7 +362,7 @@ export default function Configuracao({ aoExpirar }) {
                 type="number"
                 min="0"
                 value={configuracao.pausaLinkedinMs}
-                onChange={(e) => alterar('pausaLinkedinMs', Number(e.target.value))}
+                onChange={(e) => alterar('pausaLinkedinMs', numeroOuVazio(e.target.value))}
               />
             </label>
             <label className="admin-campo">
@@ -319,7 +371,7 @@ export default function Configuracao({ aoExpirar }) {
                 type="number"
                 min="0"
                 value={configuracao.variacaoPausaLinkedinMs}
-                onChange={(e) => alterar('variacaoPausaLinkedinMs', Number(e.target.value))}
+                onChange={(e) => alterar('variacaoPausaLinkedinMs', numeroOuVazio(e.target.value))}
               />
             </label>
           </div>

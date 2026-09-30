@@ -191,16 +191,22 @@ function ListaVagas({ aoExpirar }) {
     chamarAdmin(montarCaminhoVagas(filtros, numeroPagina))
       .then((dados) => {
         if (cancelado) return
+        // Ocultar a última vaga da última página (com filtro de status) esvazia essa
+        // página: volta para a última que ainda existe em vez de mostrar "página 3 de 2".
+        if ((dados.content ?? []).length === 0 && dados.number > 0) {
+          setNumeroPagina(Math.max(0, dados.totalPages - 1))
+          return
+        }
         setPagina(dados)
-        setMensagem(null)
+        // Só limpa erros: a confirmação de "reclassificar" chega junto com esta recarga.
+        setMensagem((atual) => (atual?.tipo === 'erro' ? null : atual))
+        setCarregando(false)
       })
       .catch((e) => {
         if (cancelado) return
         if (e instanceof ErroNaoAutenticado) aoExpirar()
         else setMensagem({ tipo: 'erro', texto: e.message })
-      })
-      .finally(() => {
-        if (!cancelado) setCarregando(false)
+        setCarregando(false)
       })
     return () => {
       cancelado = true

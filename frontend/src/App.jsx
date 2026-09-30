@@ -107,6 +107,9 @@ export default function App() {
   const [atualizando, setAtualizando] = useState(false)
   const [carregandoMais, setCarregandoMais] = useState(false)
   const [erro, setErro] = useState(null)
+  const [erroMais, setErroMais] = useState(null)
+  // Incrementar refaz a consulta com os mesmos filtros (botão "tentar de novo").
+  const [tentativa, setTentativa] = useState(0)
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
   const [secaoFiltro, setSecaoFiltro] = useState('TODAS')
@@ -155,7 +158,7 @@ export default function App() {
     return () => {
       cancelado = true
     }
-  }, [filtros])
+  }, [filtros, tentativa])
 
   const filtrosRef = useRef(filtros)
   useEffect(() => {
@@ -166,16 +169,22 @@ export default function App() {
     if (!pagina || carregandoMais) return
     const filtrosDaPagina = filtros
     setCarregandoMais(true)
+    setErroMais(null)
     try {
       const proxima = await buscarJson(
         urlDaApi('/api/vagas', { ...filtrosDaPagina, page: pagina.number + 1, size: TAMANHO_PAGINA }),
       )
       // Descarta a resposta se os filtros mudaram enquanto ela chegava.
       if (filtrosRef.current !== filtrosDaPagina) return
-      setVagas((atuais) => [...atuais, ...(proxima.content ?? [])])
+      // A paginação é por posição: se uma coleta rodou entre os cliques, vagas já
+      // mostradas escorregam para a página seguinte e viriam repetidas.
+      setVagas((atuais) => {
+        const idsMostrados = new Set(atuais.map((vaga) => vaga.id))
+        return [...atuais, ...(proxima.content ?? []).filter((vaga) => !idsMostrados.has(vaga.id))]
+      })
       setPagina(proxima)
     } catch (e) {
-      setErro(e.message)
+      setErroMais(e.message)
     } finally {
       setCarregandoMais(false)
     }
@@ -185,6 +194,14 @@ export default function App() {
   const totalFiltrado = pagina?.totalElements ?? 0
   const fontes = contagens?.fontes ?? []
   const haMais = pagina != null && !pagina.last
+  // Sem nenhuma resposta ainda, o erro ocupa a tela; depois disso ele aparece junto da
+  // lista, sem esconder filtros nem vagas já carregadas.
+  const falhouSemDados = !carregando && erro != null && pagina == null
+  const temDados = !carregando && pagina != null && contagens != null
+
+  function tentarDeNovo() {
+    setTentativa((valor) => valor + 1)
+  }
 
   const filtrosAtivos = busca.trim() !== '' || secaoFiltro !== 'TODAS' || escopoFiltro !== 'TODAS'
 
@@ -215,8 +232,8 @@ export default function App() {
         </button>
 
         <div className="boot" aria-hidden="true">
-          <p className="boot-linha">$ conectando gupy · remoteok · programathor</p>
-          <p className="boot-linha boot-ok">→ 3 fontes online</p>
+          <p className="boot-linha">$ conectando às fontes de vagas</p>
+          <p className="boot-linha boot-ok">→ fontes online</p>
           <p className="boot-linha">$ carregando manifesto...</p>
         </div>
         <h1 className="boot-titulo" ref={tituloRef}>
@@ -230,7 +247,7 @@ export default function App() {
       </header>
 
       <main>
-        {!carregando && !erro && totalGeral > 0 && (
+        {temDados && totalGeral > 0 && (
           <div className="console">
             <label className="console-busca">
               <span className="sr-only">Buscar vagas</span>
@@ -249,6 +266,7 @@ export default function App() {
               <button
                 type="button"
                 className={`aba ${secaoFiltro === 'TODAS' ? 'aba-ativa' : ''}`}
+                aria-pressed={secaoFiltro === 'TODAS'}
                 onClick={() => setSecaoFiltro('TODAS')}
               >
                 todas <span className="aba-contagem">{contagens.secao.TODAS}</span>
@@ -256,6 +274,7 @@ export default function App() {
               <button
                 type="button"
                 className={`aba ${secaoFiltro === 'REMOTO' ? 'aba-ativa' : ''}`}
+                aria-pressed={secaoFiltro === 'REMOTO'}
                 onClick={() => setSecaoFiltro('REMOTO')}
               >
                 remoto <span className="aba-contagem">{contagens.secao.REMOTO}</span>
@@ -263,6 +282,7 @@ export default function App() {
               <button
                 type="button"
                 className={`aba ${secaoFiltro === 'ESTAGIO' ? 'aba-ativa' : ''}`}
+                aria-pressed={secaoFiltro === 'ESTAGIO'}
                 onClick={() => setSecaoFiltro('ESTAGIO')}
               >
                 estágio <span className="aba-contagem">{contagens.secao.ESTAGIO}</span>
@@ -273,6 +293,7 @@ export default function App() {
               <button
                 type="button"
                 className={`aba ${escopoFiltro === 'TODAS' ? 'aba-ativa' : ''}`}
+                aria-pressed={escopoFiltro === 'TODAS'}
                 onClick={() => setEscopoFiltro('TODAS')}
               >
                 todas
@@ -280,6 +301,7 @@ export default function App() {
               <button
                 type="button"
                 className={`aba ${escopoFiltro === 'NACIONAL' ? 'aba-ativa' : ''}`}
+                aria-pressed={escopoFiltro === 'NACIONAL'}
                 onClick={() => setEscopoFiltro('NACIONAL')}
               >
                 nacional <span className="aba-contagem">{contagens.escopo.NACIONAL}</span>
@@ -287,6 +309,7 @@ export default function App() {
               <button
                 type="button"
                 className={`aba ${escopoFiltro === 'GRINGA' ? 'aba-ativa' : ''}`}
+                aria-pressed={escopoFiltro === 'GRINGA'}
                 onClick={() => setEscopoFiltro('GRINGA')}
               >
                 gringa <span className="aba-contagem">{contagens.escopo.GRINGA}</span>
@@ -302,7 +325,17 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && totalGeral > 0 && filtrosAtivos && (
+        {temDados && erro && (
+          <p className="aviso-falha" role="alert">
+            <IconeAlerta tamanho={14} />
+            não foi possível atualizar a lista ({erro}).
+            <button type="button" className="botao-limpar" onClick={tentarDeNovo} disabled={atualizando}>
+              tentar de novo
+            </button>
+          </p>
+        )}
+
+        {temDados && !erro && totalGeral > 0 && filtrosAtivos && (
           <p className="contagem-resultados" aria-live="polite">
             {totalFiltrado} de {totalGeral} entradas
           </p>
@@ -316,15 +349,18 @@ export default function App() {
           </ol>
         )}
 
-        {!carregando && erro && (
+        {falhouSemDados && (
           <div className="nota nota-alerta">
             <IconeAlerta tamanho={28} />
             <p className="nota-titulo">falha ao carregar o manifesto</p>
-            <p className="nota-texto">{erro}. O backend já rodou a coleta inicial?</p>
+            <p className="nota-texto">{erro}. O backend está no ar?</p>
+            <button type="button" className="botao-carregar-mais" onClick={tentarDeNovo} disabled={atualizando}>
+              {atualizando ? 'tentando...' : 'tentar de novo'}
+            </button>
           </div>
         )}
 
-        {!carregando && !erro && totalGeral === 0 && (
+        {temDados && !erro && totalGeral === 0 && (
           <div className="nota">
             <IconeCaixaVazia tamanho={28} />
             <p className="nota-titulo">nenhuma vaga coletada ainda</p>
@@ -332,7 +368,7 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && totalGeral > 0 && vagas.length === 0 && (
+        {temDados && !erro && totalGeral > 0 && vagas.length === 0 && (
           <div className="nota">
             <IconeBusca tamanho={28} />
             <p className="nota-titulo">nenhuma entrada encontrada</p>
@@ -340,7 +376,7 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && vagas.length > 0 && (
+        {temDados && vagas.length > 0 && (
           <ol className="manifesto" aria-busy={atualizando}>
             {vagas.map((vaga, indice) => (
               <li key={vaga.id} className="entrada" style={{ '--atraso': `${Math.min(indice, 10) * 35}ms` }}>
@@ -383,7 +419,7 @@ export default function App() {
           </ol>
         )}
 
-        {!carregando && !erro && haMais && (
+        {temDados && haMais && (
           <div className="carregar-mais">
             <button
               type="button"
@@ -393,14 +429,17 @@ export default function App() {
             >
               {carregandoMais ? 'carregando...' : `carregar mais (${vagas.length} de ${totalFiltrado})`}
             </button>
+            {erroMais && (
+              <p className="aviso-falha" role="alert">
+                não foi possível carregar mais vagas ({erroMais}). Tente de novo.
+              </p>
+            )}
           </div>
         )}
       </main>
 
       <footer className="rodape">
-        <p>
-          {fontes.length > 0 ? fontes.join(' · ') : 'gupy · remoteok · programathor'}
-        </p>
+        {fontes.length > 0 && <p>{fontes.join(' · ')}</p>}
         <p className="rodape-fim">— fim do manifesto —</p>
       </footer>
     </div>

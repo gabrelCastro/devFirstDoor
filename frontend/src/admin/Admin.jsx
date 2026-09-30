@@ -24,6 +24,17 @@ export default function Admin() {
   const [verificando, setVerificando] = useState(() => lerCredencial() != null)
   const [tela, setTela] = useState('painel')
   const [avisoLogin, setAvisoLogin] = useState(null)
+  // A tela de configuração avisa quando tem alterações não salvas, que se perderiam ao sair dela.
+  const [configPendente, setConfigPendente] = useState(false)
+
+  function podeSairDaConfiguracao() {
+    return !configPendente || window.confirm('Há alterações não salvas na configuração. Descartar?')
+  }
+
+  function trocarTela(id) {
+    if (id === tela || !podeSairDaConfiguracao()) return
+    setTela(id)
+  }
 
   useEffect(() => {
     if (!verificando) return
@@ -46,10 +57,11 @@ export default function Admin() {
   }, [verificando])
 
   const sair = useCallback(() => {
+    if (configPendente && !window.confirm('Há alterações não salvas na configuração. Descartar?')) return
     apagarCredencial()
     setUsuario(null)
     setAvisoLogin(null)
-  }, [])
+  }, [configPendente])
 
   // Qualquer 401 no meio do uso cai aqui: volta para o login avisando o motivo.
   const expirar = useCallback(() => {
@@ -110,7 +122,7 @@ export default function Admin() {
                 type="button"
                 className={`aba ${tela === id ? 'aba-ativa' : ''}`}
                 aria-current={tela === id ? 'page' : undefined}
-                onClick={() => setTela(id)}
+                onClick={() => trocarTela(id)}
               >
                 {rotulo}
               </button>
@@ -120,7 +132,7 @@ export default function Admin() {
           <main>
             {tela === 'painel' && <Painel aoExpirar={expirar} />}
             {tela === 'historico' && <Historico aoExpirar={expirar} />}
-            {tela === 'configuracao' && <Configuracao aoExpirar={expirar} />}
+            {tela === 'configuracao' && <Configuracao aoExpirar={expirar} aoMudarPendencia={setConfigPendente} />}
             {tela === 'vagas' && <Vagas aoExpirar={expirar} />}
           </main>
         </>

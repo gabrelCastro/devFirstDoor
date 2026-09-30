@@ -274,8 +274,26 @@
 
 .carregar-mais {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   margin-top: 28px;
+}
+
+.aviso-falha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: var(--alerta);
+}
+
+.carregar-mais .aviso-falha {
+  margin: 0;
 }
 
 .botao-carregar-mais {
