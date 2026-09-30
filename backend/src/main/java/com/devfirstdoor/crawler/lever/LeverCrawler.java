@@ -2,11 +2,13 @@ package com.devfirstdoor.crawler.lever;
 
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.lever.dto.LeverPostingDto;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
 import com.devfirstdoor.service.ConfiguracaoColeta;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,20 +34,27 @@ public class LeverCrawler implements VagaCrawler {
     private final LeverJobMapper mapper = new LeverJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
     private final ConfiguracaoService configuracaoService;
+    private final RegistroDescarte registroDescarte;
 
     @Autowired
     public LeverCrawler(LeverApiClient apiClient, LeverCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
-                        ConfiguracaoService configuracaoService) {
+                        ConfiguracaoService configuracaoService, RegistroDescarte registroDescarte) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new LeverVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
         this.configuracaoService = configuracaoService;
+        this.registroDescarte = registroDescarte;
+    }
+
+    public LeverCrawler(LeverApiClient apiClient, LeverCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
+                        ConfiguracaoService configuracaoService) {
+        this(apiClient, properties, robotsTxtChecker, configuracaoService, RegistroDescarte.NENHUM);
     }
 
     public LeverCrawler(LeverApiClient apiClient, LeverCrawlerProperties properties,
                         RobotsTxtChecker robotsTxtChecker) {
-        this(apiClient, properties, robotsTxtChecker, null);
+        this(apiClient, properties, robotsTxtChecker, null, RegistroDescarte.NENHUM);
     }
 
     @Override
@@ -93,13 +102,27 @@ public class LeverCrawler implements VagaCrawler {
             return;
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(posting);
-        if (nivel.isEmpty() || !classifier.isRelevanteParaTech(posting)) {
+        if (nivel.isEmpty()) {
+            registrar(posting, empresa, MotivoDescarte.NIVEL);
             return;
         }
-        if (!classifier.isRemota(posting) || !classifier.isJava(posting)) {
+        if (!classifier.isRelevanteParaTech(posting)) {
+            registrar(posting, empresa, MotivoDescarte.FORA_DE_TECNOLOGIA);
+            return;
+        }
+        if (!classifier.isRemota(posting)) {
+            registrar(posting, empresa, MotivoDescarte.NAO_REMOTA);
+            return;
+        }
+        if (!classifier.isJava(posting)) {
+            registrar(posting, empresa, MotivoDescarte.NAO_JAVA);
             return;
         }
         vagas.add(mapper.paraVaga(posting, empresa, nivel.get()));
+    }
+
+    private void registrar(LeverPostingDto posting, String empresa, MotivoDescarte motivo) {
+        registroDescarte.registrar(getFonte(), posting.text(), empresa, posting.local(), posting.hostedUrl(), motivo);
     }
 
     private boolean podeColetar() {

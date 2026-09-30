@@ -1,11 +1,13 @@
 package com.devfirstdoor.crawler.linkedin;
 
 import com.devfirstdoor.crawler.linkedin.LinkedinHtmlClient.LinkedinBloqueadoException;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import com.devfirstdoor.service.DeduplicacaoService;
 import com.devfirstdoor.service.ConfiguracaoColeta;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -34,6 +36,7 @@ class LinkedinCrawlerTest {
     private final LinkedinHtmlClient client = mock(LinkedinHtmlClient.class);
     private final VagaRepository vagaRepository = mock(VagaRepository.class);
     private final DeduplicacaoService deduplicacaoService = new DeduplicacaoService(vagaRepository);
+    private final RegistroDescarte registroDescarte = mock(RegistroDescarte.class);
     private final LinkedinCrawlerProperties properties = new LinkedinCrawlerProperties();
 
     @Test
@@ -79,6 +82,9 @@ class LinkedinCrawlerTest {
 
         verify(client, times(2)).buscarTodasAsPaginas("desenvolvedor júnior");
         verify(client, times(1)).buscarDescricao("7");
+        verify(registroDescarte, times(2)).registrar(
+                LinkedinJobMapper.FONTE, "Desenvolvedor Júnior", "Empresa 7", "Brasil",
+                "https://www.linkedin.com/jobs/view/7", MotivoDescarte.NAO_JAVA);
     }
 
     @Test
@@ -163,7 +169,7 @@ class LinkedinCrawlerTest {
     }
 
     private LinkedinCrawler crawler() {
-        return new LinkedinCrawler(client, properties, deduplicacaoService);
+        return new LinkedinCrawler(client, properties, deduplicacaoService, registroDescarte);
     }
 
     private static LinkedinJobDto job(String id, String titulo) {

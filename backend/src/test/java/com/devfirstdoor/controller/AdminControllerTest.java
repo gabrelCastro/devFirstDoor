@@ -7,12 +7,16 @@ import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseLocationDto;
 import com.devfirstdoor.crawler.lever.LeverApiClient;
 import com.devfirstdoor.domain.ExecucaoColeta;
 import com.devfirstdoor.domain.ExecucaoFonte;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.OrigemColeta;
+import com.devfirstdoor.domain.VagaDescartada;
 import com.devfirstdoor.repository.ConfiguracaoRepository;
 import com.devfirstdoor.repository.ExecucaoColetaRepository;
 import com.devfirstdoor.repository.ExecucaoFonteRepository;
+import com.devfirstdoor.repository.VagaDescartadaRepository;
 import com.devfirstdoor.service.AndamentoColeta;
 import com.devfirstdoor.service.ColetaService;
+import com.devfirstdoor.service.DescarteService;
 import com.devfirstdoor.service.HistoricoColetaService;
 import com.devfirstdoor.service.PausaAgendamento;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,9 +83,16 @@ class AdminControllerTest {
     @Autowired
     private ConfiguracaoRepository configuracaoRepository;
 
+    @Autowired
+    private VagaDescartadaRepository vagaDescartadaRepository;
+
+    @Autowired
+    private DescarteService descarteService;
+
     @BeforeEach
     void limparConfiguracao() {
         configuracaoRepository.deleteAll();
+        vagaDescartadaRepository.deleteAll();
     }
 
     @Test
@@ -214,6 +225,55 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.content[0].fontes[0].encontradas").value(12))
                 .andExpect(jsonPath("$.content[0].fontes[0].novas").value(4))
                 .andExpect(jsonPath("$.content[0].fontes[0].expiradas").value(2));
+    }
+
+    @Test
+    void descartes_semCredencial_deveResponder401() throws Exception {
+        mockMvc.perform(get("/api/admin/descartes"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void descartes_deveFiltrarPaginarEDevolverContagensPorMotivo() throws Exception {
+        descarteService.registrar("GUPY", "Desenvolvedor JavaScript Júnior", "Empresa Um", "Remoto",
+                "https://empresa.gupy.io/jobs/1", MotivoDescarte.NAO_JAVA);
+        descarteService.registrar("LINKEDIN", "Desenvolvedor Java Sênior", "Empresa Dois", "Brasil",
+                "https://linkedin.com/jobs/view/2", MotivoDescarte.NIVEL);
+        // O mesmo link e motivo atualiza o registro em vez de criar uma duplicata.
+        descarteService.registrar("GUPY", "Desenvolvedor JavaScript Jr", "Empresa Um", "Remoto",
+                "https://empresa.gupy.io/jobs/1", MotivoDescarte.NAO_JAVA);
+
+        mockMvc.perform(get("/api/admin/descartes")
+                        .param("fonte", "gupy")
+                        .param("motivo", "NAO_JAVA")
+                        .param("busca", "javascript")
+                        .param("size", "1")
+                        .header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.descartes.content.length()").value(1))
+                .andExpect(jsonPath("$.descartes.totalElements").value(1))
+                .andExpect(jsonPath("$.descartes.content[0].fonte").value("GUPY"))
+                .andExpect(jsonPath("$.descartes.content[0].titulo").value("Desenvolvedor JavaScript Jr"))
+                .andExpect(jsonPath("$.descartes.content[0].motivo").value("NAO_JAVA"))
+                .andExpect(jsonPath("$.contagensPorMotivo.NAO_JAVA").value(1))
+                .andExpect(jsonPath("$.contagensPorMotivo.NIVEL").value(1))
+                .andExpect(jsonPath("$.contagensPorMotivo.NAO_REMOTA").value(0));
+    }
+
+    @Test
+    void descartes_deveRemoverRegistrosComMaisDeTrintaDias() {
+        vagaDescartadaRepository.save(new VagaDescartada(
+                "GUPY", "Antiga", "Empresa", "Remoto", "https://gupy.io/jobs/antiga",
+                MotivoDescarte.NAO_JAVA, LocalDateTime.now().minusDays(31)));
+        vagaDescartadaRepository.save(new VagaDescartada(
+                "GUPY", "Recente", "Empresa", "Remoto", "https://gupy.io/jobs/recente",
+                MotivoDescarte.NAO_JAVA, LocalDateTime.now().minusDays(29)));
+
+        assertThat(descarteService.removerAntigos()).isEqualTo(1);
+
+        assertThat(vagaDescartadaRepository.findAll())
+                .extracting(VagaDescartada::getTitulo)
+                .containsExactly("Recente");
     }
 
     @Test

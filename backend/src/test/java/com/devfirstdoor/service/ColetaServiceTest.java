@@ -216,6 +216,18 @@ class ColetaServiceTest {
     }
 
     @Test
+    void executarTodos_deveLimparDescartesAntigosAoFimDaColeta() {
+        DescarteService descarteService = mock(DescarteService.class);
+        ColetaService coletaService = new ColetaService(
+                List.of(crawlerFalso("BOM", List::of)), deduplicacaoService, vagaRepository,
+                expiracaoVagasService, historicoColetaService, andamento, descarteService, Runnable::run);
+
+        coletaService.executarTodos(OrigemColeta.AGENDADA);
+
+        verify(descarteService).removerAntigos();
+    }
+
+    @Test
     void disparar_deveRodarEmSegundoPlanoESegurarATravaAteTerminar() {
         AtomicInteger execucoes = new AtomicInteger();
         VagaCrawler bom = crawlerFalso("BOM", () -> {

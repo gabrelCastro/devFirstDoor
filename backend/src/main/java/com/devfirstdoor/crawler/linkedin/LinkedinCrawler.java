@@ -3,11 +3,13 @@ package com.devfirstdoor.crawler.linkedin;
 import com.devfirstdoor.crawler.ProgressoColeta;
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.linkedin.LinkedinHtmlClient.LinkedinBloqueadoException;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.service.DeduplicacaoService;
 import com.devfirstdoor.service.ConfiguracaoColeta;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,22 +52,35 @@ public class LinkedinCrawler implements VagaCrawler {
     private final LinkedinJobMapper mapper = new LinkedinJobMapper();
     private final DeduplicacaoService deduplicacaoService;
     private final ConfiguracaoService configuracaoService;
+    private final RegistroDescarte registroDescarte;
     private final Set<String> hashesSemJava = ConcurrentHashMap.newKeySet();
     private volatile int jaSalvasNaUltimaColeta;
 
     @Autowired
     public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
-                           DeduplicacaoService deduplicacaoService, ConfiguracaoService configuracaoService) {
+                           DeduplicacaoService deduplicacaoService, ConfiguracaoService configuracaoService,
+                           RegistroDescarte registroDescarte) {
         this.client = client;
         this.properties = properties;
         this.classifier = new LinkedinVagaClassifier(properties);
         this.deduplicacaoService = deduplicacaoService;
         this.configuracaoService = configuracaoService;
+        this.registroDescarte = registroDescarte;
+    }
+
+    public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
+                           DeduplicacaoService deduplicacaoService, ConfiguracaoService configuracaoService) {
+        this(client, properties, deduplicacaoService, configuracaoService, RegistroDescarte.NENHUM);
     }
 
     public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
                            DeduplicacaoService deduplicacaoService) {
-        this(client, properties, deduplicacaoService, null);
+        this(client, properties, deduplicacaoService, null, RegistroDescarte.NENHUM);
+    }
+
+    public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
+                           DeduplicacaoService deduplicacaoService, RegistroDescarte registroDescarte) {
+        this(client, properties, deduplicacaoService, null, registroDescarte);
     }
 
     @Override
@@ -104,10 +119,15 @@ public class LinkedinCrawler implements VagaCrawler {
                 log.warn("{}; a leitura das vagas restantes fica para a próxima execução", e.getMessage());
                 break;
             }
+            if (descricao == null && !LinguagemJava.mencionadaEm(candidata.job().titulo())) {
+                registrar(candidata.job(), MotivoDescarte.ERRO_LEITURA);
+                continue;
+            }
             if (!LinguagemJava.mencionadaEm(candidata.job().titulo(), descricao)) {
                 if (descricao != null) {
                     hashesSemJava.add(candidata.hash());
                 }
+                registrar(candidata.job(), MotivoDescarte.NAO_JAVA);
                 continue;
             }
             LinkedinModalidade modalidade = classifier.classificarModalidade(candidata.job().titulo(), descricao);
@@ -155,7 +175,11 @@ public class LinkedinCrawler implements VagaCrawler {
 
     private Optional<Candidata> avaliar(LinkedinJobDto job, Set<String> hashesVistos, Set<String> hashesJaSalvos) {
         String hash = deduplicacaoService.calcularHash(job.titulo(), job.empresa(), LinkedinJobMapper.FONTE);
-        if (!hashesVistos.add(hash) || hashesSemJava.contains(hash)) {
+        if (!hashesVistos.add(hash)) {
+            return Optional.empty();
+        }
+        if (hashesSemJava.contains(hash)) {
+            registrar(job, MotivoDescarte.NAO_JAVA);
             return Optional.empty();
         }
         if (deduplicacaoService.isDuplicada(hash)) {
@@ -163,10 +187,19 @@ public class LinkedinCrawler implements VagaCrawler {
             return Optional.empty();
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(job);
-        if (nivel.isEmpty() || !classifier.isRelevanteParaTech(job)) {
+        if (nivel.isEmpty()) {
+            registrar(job, MotivoDescarte.NIVEL);
+            return Optional.empty();
+        }
+        if (!classifier.isRelevanteParaTech(job)) {
+            registrar(job, MotivoDescarte.FORA_DE_TECNOLOGIA);
             return Optional.empty();
         }
         return Optional.of(new Candidata(job, nivel.get(), hash));
+    }
+
+    private void registrar(LinkedinJobDto job, MotivoDescarte motivo) {
+        registroDescarte.registrar(getFonte(), job.titulo(), job.empresa(), job.local(), job.link(), motivo);
     }
 
     private record Candidata(LinkedinJobDto job, NivelVaga nivel, String hash) {

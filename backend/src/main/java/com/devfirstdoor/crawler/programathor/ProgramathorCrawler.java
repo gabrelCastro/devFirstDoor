@@ -1,10 +1,12 @@
 package com.devfirstdoor.crawler.programathor;
 
 import com.devfirstdoor.crawler.VagaCrawler;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,19 +38,32 @@ public class ProgramathorCrawler implements VagaCrawler {
     private final ProgramathorJobMapper mapper = new ProgramathorJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
     private final ConfiguracaoService configuracaoService;
+    private final RegistroDescarte registroDescarte;
 
     @Autowired
     public ProgramathorCrawler(ProgramathorHtmlClient client, ProgramathorCrawlerProperties properties,
-                                RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
+                                RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService,
+                                RegistroDescarte registroDescarte) {
         this.client = client;
         this.properties = properties;
         this.robotsTxtChecker = robotsTxtChecker;
         this.configuracaoService = configuracaoService;
+        this.registroDescarte = registroDescarte;
+    }
+
+    public ProgramathorCrawler(ProgramathorHtmlClient client, ProgramathorCrawlerProperties properties,
+                               RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
+        this(client, properties, robotsTxtChecker, configuracaoService, RegistroDescarte.NENHUM);
     }
 
     public ProgramathorCrawler(ProgramathorHtmlClient client, ProgramathorCrawlerProperties properties,
                                RobotsTxtChecker robotsTxtChecker) {
-        this(client, properties, robotsTxtChecker, null);
+        this(client, properties, robotsTxtChecker, null, RegistroDescarte.NENHUM);
+    }
+
+    public ProgramathorCrawler(ProgramathorHtmlClient client, ProgramathorCrawlerProperties properties,
+                               RobotsTxtChecker robotsTxtChecker, RegistroDescarte registroDescarte) {
+        this(client, properties, robotsTxtChecker, null, registroDescarte);
     }
 
     @Override
@@ -83,6 +98,8 @@ public class ProgramathorCrawler implements VagaCrawler {
             List<ProgramathorJobDto> jobs = client.buscarTodasAsPaginas(queryString);
             for (ProgramathorJobDto job : jobs) {
                 if (!LinguagemJava.mencionadaEm(job.tags()) && !LinguagemJava.mencionadaEm(job.titulo())) {
+                    registroDescarte.registrar(getFonte(), job.titulo(), job.empresa(), job.local(), job.link(),
+                            MotivoDescarte.NAO_JAVA);
                     continue;
                 }
                 if (linksVistos.add(job.link())) {

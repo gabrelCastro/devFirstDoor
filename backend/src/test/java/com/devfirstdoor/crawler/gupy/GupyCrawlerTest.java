@@ -1,10 +1,12 @@
 package com.devfirstdoor.crawler.gupy;
 
 import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
 import com.devfirstdoor.service.ConfiguracaoColeta;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +32,8 @@ class GupyCrawlerTest {
     private final GupyApiClient apiClient = mock(GupyApiClient.class);
     private final RobotsTxtChecker robotsTxtChecker = mock(RobotsTxtChecker.class);
     private final GupyCrawlerProperties properties = new GupyCrawlerProperties();
-    private final GupyCrawler crawler = new GupyCrawler(apiClient, properties, robotsTxtChecker);
+    private final RegistroDescarte registroDescarte = mock(RegistroDescarte.class);
+    private final GupyCrawler crawler = new GupyCrawler(apiClient, properties, robotsTxtChecker, registroDescarte);
 
     @BeforeEach
     void setUp() {
@@ -70,6 +73,9 @@ class GupyCrawlerTest {
         assertThat(crawler.coletar()).isEmpty();
 
         verify(apiClient, times(1)).buscarTextoDaVaga(job.jobUrl());
+        verify(registroDescarte, times(2)).registrar(
+                GupyJobMapper.FONTE, job.name(), job.careerPageName(), "São Paulo, SP", job.jobUrl(),
+                MotivoDescarte.NAO_JAVA);
     }
 
     @Test
@@ -82,6 +88,9 @@ class GupyCrawlerTest {
         assertThat(crawler.coletar()).extracting(Vaga::getTitulo).containsExactly("Desenvolvedor Back-end Júnior");
 
         verify(apiClient, times(2)).buscarTextoDaVaga(job.jobUrl());
+        verify(registroDescarte).registrar(
+                GupyJobMapper.FONTE, job.name(), job.careerPageName(), "São Paulo, SP", job.jobUrl(),
+                MotivoDescarte.ERRO_LEITURA);
     }
 
     @Test

@@ -44,6 +44,7 @@ public class ColetaService {
     private final VagaRepository vagaRepository;
     private final ExpiracaoVagasService expiracaoVagasService;
     private final HistoricoColetaService historicoColetaService;
+    private final DescarteService descarteService;
     private final AndamentoColeta andamento;
     private final Executor segundoPlano;
     private final AtomicBoolean emExecucao = new AtomicBoolean(false);
@@ -59,21 +60,38 @@ public class ColetaService {
     @Autowired
     public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                          VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
+                         HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
+                         DescarteService descarteService) {
+        this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
+                andamento, descarteService, ColetaService::novaThread);
+    }
+
+    public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
+                         VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
                          HistoricoColetaService historicoColetaService, AndamentoColeta andamento) {
         this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
-                andamento, ColetaService::novaThread);
+                andamento, null, ColetaService::novaThread);
     }
 
     ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                   VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
                   HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
                   Executor segundoPlano) {
+        this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
+                andamento, null, segundoPlano);
+    }
+
+    ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
+                  VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
+                  HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
+                  DescarteService descarteService, Executor segundoPlano) {
         this.crawlers = crawlers;
         this.deduplicacaoService = deduplicacaoService;
         this.vagaRepository = vagaRepository;
         this.expiracaoVagasService = expiracaoVagasService;
         this.historicoColetaService = historicoColetaService;
         this.andamento = andamento;
+        this.descarteService = descarteService;
         this.segundoPlano = segundoPlano;
     }
 
@@ -159,36 +177,42 @@ public class ColetaService {
     }
 
     private Map<String, Integer> executarCrawlers(OrigemColeta origem, List<VagaCrawler> alvo) {
-        Map<String, Integer> vagasNovasPorFonte = new LinkedHashMap<>();
-        ExecucaoColeta execucao = historicoColetaService.iniciar(origem);
-        List<ExecucaoFonte> resultados = new ArrayList<>();
+        try {
+            Map<String, Integer> vagasNovasPorFonte = new LinkedHashMap<>();
+            ExecucaoColeta execucao = historicoColetaService.iniciar(origem);
+            List<ExecucaoFonte> resultados = new ArrayList<>();
 
-        for (VagaCrawler crawler : alvo) {
-            String fonte = crawler.getFonte();
-            LocalDateTime inicio = LocalDateTime.now();
-            ExecucaoFonte resultado;
-            andamento.iniciarFonte(fonte);
-            try {
-                List<Vaga> coletadas = crawler.coletar(andamento);
-                List<Vaga> novas = deduplicacaoService.filtrarNovas(coletadas);
-                vagaRepository.saveAll(novas);
-                deduplicacaoService.registrarVisita(hashes(coletadas), inicio);
-                int expiradas = removerExpiradas(fonte, coletadas, inicio);
-                vagasNovasPorFonte.put(fonte, novas.size());
-                resultado = ExecucaoFonte.sucesso(execucao, fonte, inicio,
-                        crawler.contarEncontradas(coletadas), novas.size(), expiradas);
-                log.info("Crawler {} concluído: {} coletada(s), {} nova(s) persistida(s), {} marcada(s) como expirada(s)",
-                        fonte, coletadas.size(), novas.size(), expiradas);
-            } catch (Exception e) {
-                log.error("Crawler {} falhou e será ignorado nesta execução: {}", fonte, e.getMessage(), e);
-                vagasNovasPorFonte.put(fonte, -1);
-                resultado = ExecucaoFonte.erro(execucao, fonte, inicio, descrever(e));
+            for (VagaCrawler crawler : alvo) {
+                String fonte = crawler.getFonte();
+                LocalDateTime inicio = LocalDateTime.now();
+                ExecucaoFonte resultado;
+                andamento.iniciarFonte(fonte);
+                try {
+                    List<Vaga> coletadas = crawler.coletar(andamento);
+                    List<Vaga> novas = deduplicacaoService.filtrarNovas(coletadas);
+                    vagaRepository.saveAll(novas);
+                    deduplicacaoService.registrarVisita(hashes(coletadas), inicio);
+                    int expiradas = removerExpiradas(fonte, coletadas, inicio);
+                    vagasNovasPorFonte.put(fonte, novas.size());
+                    resultado = ExecucaoFonte.sucesso(execucao, fonte, inicio,
+                            crawler.contarEncontradas(coletadas), novas.size(), expiradas);
+                    log.info("Crawler {} concluído: {} coletada(s), {} nova(s) persistida(s), {} marcada(s) como expirada(s)",
+                            fonte, coletadas.size(), novas.size(), expiradas);
+                } catch (Exception e) {
+                    log.error("Crawler {} falhou e será ignorado nesta execução: {}", fonte, e.getMessage(), e);
+                    vagasNovasPorFonte.put(fonte, -1);
+                    resultado = ExecucaoFonte.erro(execucao, fonte, inicio, descrever(e));
+                }
+                historicoColetaService.registrar(resultado);
+                resultados.add(resultado);
             }
-            historicoColetaService.registrar(resultado);
-            resultados.add(resultado);
+            historicoColetaService.finalizar(execucao, resultados);
+            return vagasNovasPorFonte;
+        } finally {
+            if (descarteService != null) {
+                descarteService.removerAntigos();
+            }
         }
-        historicoColetaService.finalizar(execucao, resultados);
-        return vagasNovasPorFonte;
     }
 
     /** Exceções sem mensagem (ex: NullPointerException) ficam ao menos com o tipo. */

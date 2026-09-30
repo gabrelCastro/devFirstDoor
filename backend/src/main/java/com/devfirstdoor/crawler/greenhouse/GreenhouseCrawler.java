@@ -2,11 +2,13 @@ package com.devfirstdoor.crawler.greenhouse;
 
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseJobDto;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
 import com.devfirstdoor.service.ConfiguracaoColeta;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,20 +34,28 @@ public class GreenhouseCrawler implements VagaCrawler {
     private final GreenhouseJobMapper mapper = new GreenhouseJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
     private final ConfiguracaoService configuracaoService;
+    private final RegistroDescarte registroDescarte;
 
     @Autowired
     public GreenhouseCrawler(GreenhouseApiClient apiClient, GreenhouseCrawlerProperties properties,
-                             RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
+                             RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService,
+                             RegistroDescarte registroDescarte) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new GreenhouseVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
         this.configuracaoService = configuracaoService;
+        this.registroDescarte = registroDescarte;
+    }
+
+    public GreenhouseCrawler(GreenhouseApiClient apiClient, GreenhouseCrawlerProperties properties,
+                             RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
+        this(apiClient, properties, robotsTxtChecker, configuracaoService, RegistroDescarte.NENHUM);
     }
 
     public GreenhouseCrawler(GreenhouseApiClient apiClient, GreenhouseCrawlerProperties properties,
                              RobotsTxtChecker robotsTxtChecker) {
-        this(apiClient, properties, robotsTxtChecker, null);
+        this(apiClient, properties, robotsTxtChecker, null, RegistroDescarte.NENHUM);
     }
 
     @Override
@@ -93,13 +103,30 @@ public class GreenhouseCrawler implements VagaCrawler {
             return;
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(job);
-        if (nivel.isEmpty() || !classifier.isRelevanteParaTech(job)) {
+        if (nivel.isEmpty()) {
+            registrar(job, empresa, MotivoDescarte.NIVEL);
             return;
         }
-        if (!classifier.isRemota(job) || !classifier.isJava(job)) {
+        if (!classifier.isRelevanteParaTech(job)) {
+            registrar(job, empresa, MotivoDescarte.FORA_DE_TECNOLOGIA);
+            return;
+        }
+        if (!classifier.isRemota(job)) {
+            registrar(job, empresa, MotivoDescarte.NAO_REMOTA);
+            return;
+        }
+        if (!classifier.isJava(job)) {
+            registrar(job, empresa, MotivoDescarte.NAO_JAVA);
             return;
         }
         vagas.add(mapper.paraVaga(job, empresa, nivel.get()));
+    }
+
+    private void registrar(GreenhouseJobDto job, String empresa, MotivoDescarte motivo) {
+        String nomeEmpresa = job.companyName() != null && !job.companyName().isBlank()
+                ? job.companyName() : empresa;
+        registroDescarte.registrar(getFonte(), job.title(), nomeEmpresa, job.nomeDoLocal(),
+                job.absoluteUrl(), motivo);
     }
 
     private boolean podeColetar() {

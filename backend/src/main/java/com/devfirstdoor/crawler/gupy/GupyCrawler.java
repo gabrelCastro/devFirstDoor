@@ -3,11 +3,13 @@ package com.devfirstdoor.crawler.gupy;
 import com.devfirstdoor.crawler.ProgressoColeta;
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
 import com.devfirstdoor.service.ConfiguracaoColeta;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 @EnableConfigurationProperties(GupyCrawlerProperties.class)
@@ -36,6 +40,7 @@ public class GupyCrawler implements VagaCrawler {
     private final GupyJobMapper mapper = new GupyJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
     private final ConfiguracaoService configuracaoService;
+    private final RegistroDescarte registroDescarte;
 
     /**
      * Resultado da leitura da página de cada vaga (menciona Java ou não). Fica em memória
@@ -45,16 +50,27 @@ public class GupyCrawler implements VagaCrawler {
 
     @Autowired
     public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
-                       ConfiguracaoService configuracaoService) {
+                       ConfiguracaoService configuracaoService, RegistroDescarte registroDescarte) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new GupyVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
         this.configuracaoService = configuracaoService;
+        this.registroDescarte = registroDescarte;
+    }
+
+    public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
+                       ConfiguracaoService configuracaoService) {
+        this(apiClient, properties, robotsTxtChecker, configuracaoService, RegistroDescarte.NENHUM);
     }
 
     public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker) {
-        this(apiClient, properties, robotsTxtChecker, null);
+        this(apiClient, properties, robotsTxtChecker, null, RegistroDescarte.NENHUM);
+    }
+
+    public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
+                       RegistroDescarte registroDescarte) {
+        this(apiClient, properties, robotsTxtChecker, null, registroDescarte);
     }
 
     @Override
@@ -106,38 +122,56 @@ public class GupyCrawler implements VagaCrawler {
             return;
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(job);
-        if (nivel.isEmpty() || !classifier.isRelevanteParaTech(job)) {
+        if (nivel.isEmpty()) {
+            registrar(job, MotivoDescarte.NIVEL);
+            return;
+        }
+        if (!classifier.isRelevanteParaTech(job)) {
+            registrar(job, MotivoDescarte.FORA_DE_TECNOLOGIA);
             return;
         }
         if (properties.isApenasRemoto() && !classifier.isRemota(job)) {
+            registrar(job, MotivoDescarte.NAO_REMOTA);
             return;
         }
-        if (!isJava(job)) {
+        ResultadoJava resultadoJava = verificarJava(job);
+        if (resultadoJava != ResultadoJava.SIM) {
+            registrar(job, resultadoJava == ResultadoJava.ERRO_LEITURA
+                    ? MotivoDescarte.ERRO_LEITURA : MotivoDescarte.NAO_JAVA);
             return;
         }
         vagas.add(mapper.paraVaga(job, nivel.get()));
     }
 
     /** O título basta quando cita Java; senão, a página da vaga é lida atrás dos requisitos. */
-    private boolean isJava(GupyJobDto job) {
+    private ResultadoJava verificarJava(GupyJobDto job) {
         if (LinguagemJava.mencionadaEm(job.name())) {
-            return true;
+            return ResultadoJava.SIM;
         }
         Boolean jaLido = javaPorId.get(job.id());
         if (jaLido != null) {
-            return jaLido;
+            return jaLido ? ResultadoJava.SIM : ResultadoJava.NAO;
         }
         if (job.jobUrl() == null) {
-            return false;
+            return ResultadoJava.ERRO_LEITURA;
         }
         String texto = apiClient.buscarTextoDaVaga(job.jobUrl());
         if (texto == null) {
-            return false; // falha de leitura: não entra agora, mas é tentada de novo na próxima coleta
+            return ResultadoJava.ERRO_LEITURA; // não entra no cache e é tentada de novo na próxima coleta
         }
         boolean java = LinguagemJava.mencionadaEm(texto);
         javaPorId.put(job.id(), java);
-        return java;
+        return java ? ResultadoJava.SIM : ResultadoJava.NAO;
     }
+
+    private void registrar(GupyJobDto job, MotivoDescarte motivo) {
+        String local = Stream.of(job.city(), job.state())
+                .filter(valor -> valor != null && !valor.isBlank())
+                .collect(Collectors.joining(", "));
+        registroDescarte.registrar(getFonte(), job.name(), job.careerPageName(), local, job.jobUrl(), motivo);
+    }
+
+    private enum ResultadoJava { SIM, NAO, ERRO_LEITURA }
 
     private boolean podeColetar() {
         URI uri = URI.create(properties.getBaseUrl());

@@ -195,7 +195,9 @@ Faça sempre o primeiro `[ ]`, um por iteração.
 
 # Fase 3: descartes, métricas e notificações
 
-## 11. [ ] Registro de vagas descartadas e motivo
+## 11. [x] Registro de vagas descartadas e motivo
+
+Feito: `DescarteService` registra os descartes dos seis crawlers (link + motivo sem duplicar), apaga registros com mais de 30 dias ao fim de cada coleta e expõe `GET /api/admin/descartes` com filtros e contagem por motivo.
 
 - Os crawlers registram o que descartam, com motivo: `NAO_JAVA`, `NAO_REMOTA`, `NIVEL`
   (pleno/sênior ou sem nível), `FORA_DE_TECNOLOGIA`, `ERRO_LEITURA`. Guardar fonte, título,

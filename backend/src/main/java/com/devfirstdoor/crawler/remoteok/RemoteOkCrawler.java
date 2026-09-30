@@ -2,10 +2,12 @@ package com.devfirstdoor.crawler.remoteok;
 
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.remoteok.dto.RemoteOkJobDto;
+import com.devfirstdoor.domain.MotivoDescarte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
 import com.devfirstdoor.service.ConfiguracaoService;
+import com.devfirstdoor.service.RegistroDescarte;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,20 +33,28 @@ public class RemoteOkCrawler implements VagaCrawler {
     private final RemoteOkJobMapper mapper = new RemoteOkJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
     private final ConfiguracaoService configuracaoService;
+    private final RegistroDescarte registroDescarte;
 
     @Autowired
     public RemoteOkCrawler(RemoteOkApiClient apiClient, RemoteOkCrawlerProperties properties,
-                           RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
+                           RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService,
+                           RegistroDescarte registroDescarte) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new RemoteOkVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
         this.configuracaoService = configuracaoService;
+        this.registroDescarte = registroDescarte;
+    }
+
+    public RemoteOkCrawler(RemoteOkApiClient apiClient, RemoteOkCrawlerProperties properties,
+                           RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
+        this(apiClient, properties, robotsTxtChecker, configuracaoService, RegistroDescarte.NENHUM);
     }
 
     public RemoteOkCrawler(RemoteOkApiClient apiClient, RemoteOkCrawlerProperties properties,
                            RobotsTxtChecker robotsTxtChecker) {
-        this(apiClient, properties, robotsTxtChecker, null);
+        this(apiClient, properties, robotsTxtChecker, null, RegistroDescarte.NENHUM);
     }
 
     @Override
@@ -84,13 +94,23 @@ public class RemoteOkCrawler implements VagaCrawler {
             return;
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(job);
-        if (nivel.isEmpty() || !classifier.isRelevanteParaTech(job)) {
+        if (nivel.isEmpty()) {
+            registrar(job, MotivoDescarte.NIVEL);
+            return;
+        }
+        if (!classifier.isRelevanteParaTech(job)) {
+            registrar(job, MotivoDescarte.FORA_DE_TECNOLOGIA);
             return;
         }
         if (!LinguagemJava.mencionadaEm(job.tags()) && !LinguagemJava.mencionadaEm(job.position())) {
+            registrar(job, MotivoDescarte.NAO_JAVA);
             return;
         }
         vagas.add(mapper.paraVaga(job, nivel.get()));
+    }
+
+    private void registrar(RemoteOkJobDto job, MotivoDescarte motivo) {
+        registroDescarte.registrar(getFonte(), job.position(), job.company(), job.location(), job.url(), motivo);
     }
 
     private boolean podeColetar() {
