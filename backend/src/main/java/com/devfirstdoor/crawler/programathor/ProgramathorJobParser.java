@@ -47,7 +47,9 @@ public class ProgramathorJobParser {
         }
         String local = textoDoIcone(card, "fa-map-marker-alt");
 
-        return Optional.of(new ProgramathorJobDto(titulo, empresa, local, link));
+        List<String> tags = card.select("span.tag-list").eachText();
+
+        return Optional.of(new ProgramathorJobDto(titulo, empresa, local, link, tags));
     }
 
     private String textoDoIcone(Element card, String iconClass) {

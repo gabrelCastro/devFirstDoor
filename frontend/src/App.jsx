@@ -107,7 +107,7 @@ export default function App() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState(null)
   const [busca, setBusca] = useState('')
-  const [nivelFiltro, setNivelFiltro] = useState('TODOS')
+  const [secaoFiltro, setSecaoFiltro] = useState('TODAS')
   const [escopoFiltro, setEscopoFiltro] = useState('TODAS')
 
   useEffect(() => {
@@ -140,13 +140,14 @@ export default function App() {
     }
   }, [])
 
-  const contagemPorNivel = useMemo(() => {
+  const contagemPorSecao = useMemo(() => {
     return vagas.reduce(
       (acc, vaga) => {
-        acc[vaga.nivel] = (acc[vaga.nivel] ?? 0) + 1
+        if (vaga.remoto) acc.REMOTO += 1
+        if (vaga.nivel === 'ESTAGIO') acc.ESTAGIO += 1
         return acc
       },
-      { ESTAGIO: 0, JUNIOR: 0 },
+      { REMOTO: 0, ESTAGIO: 0 },
     )
   }, [vagas])
 
@@ -164,7 +165,8 @@ export default function App() {
   const vagasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase()
     return vagas.filter((vaga) => {
-      if (nivelFiltro !== 'TODOS' && vaga.nivel !== nivelFiltro) return false
+      if (secaoFiltro === 'REMOTO' && !vaga.remoto) return false
+      if (secaoFiltro === 'ESTAGIO' && vaga.nivel !== 'ESTAGIO') return false
       if (escopoFiltro === 'NACIONAL' && vaga.internacional) return false
       if (escopoFiltro === 'GRINGA' && !vaga.internacional) return false
       if (termo) {
@@ -173,18 +175,18 @@ export default function App() {
       }
       return true
     })
-  }, [vagas, busca, nivelFiltro, escopoFiltro])
+  }, [vagas, busca, secaoFiltro, escopoFiltro])
 
   const fontesUnicas = useMemo(
     () => Array.from(new Set(vagas.map((v) => v.fonte))).sort(),
     [vagas],
   )
 
-  const filtrosAtivos = busca.trim() !== '' || nivelFiltro !== 'TODOS' || escopoFiltro !== 'TODAS'
+  const filtrosAtivos = busca.trim() !== '' || secaoFiltro !== 'TODAS' || escopoFiltro !== 'TODAS'
 
   function limparFiltros() {
     setBusca('')
-    setNivelFiltro('TODOS')
+    setSecaoFiltro('TODAS')
     setEscopoFiltro('TODAS')
   }
 
@@ -239,27 +241,27 @@ export default function App() {
               />
             </label>
 
-            <div className="abas-grupo" role="group" aria-label="Filtrar por nível">
+            <div className="abas-grupo" role="group" aria-label="Filtrar por seção">
               <button
                 type="button"
-                className={`aba ${nivelFiltro === 'TODOS' ? 'aba-ativa' : ''}`}
-                onClick={() => setNivelFiltro('TODOS')}
+                className={`aba ${secaoFiltro === 'TODAS' ? 'aba-ativa' : ''}`}
+                onClick={() => setSecaoFiltro('TODAS')}
               >
-                todos <span className="aba-contagem">{vagas.length}</span>
+                todas <span className="aba-contagem">{vagas.length}</span>
               </button>
               <button
                 type="button"
-                className={`aba ${nivelFiltro === 'ESTAGIO' ? 'aba-ativa' : ''}`}
-                onClick={() => setNivelFiltro('ESTAGIO')}
+                className={`aba ${secaoFiltro === 'REMOTO' ? 'aba-ativa' : ''}`}
+                onClick={() => setSecaoFiltro('REMOTO')}
               >
-                estágio <span className="aba-contagem">{contagemPorNivel.ESTAGIO}</span>
+                remoto <span className="aba-contagem">{contagemPorSecao.REMOTO}</span>
               </button>
               <button
                 type="button"
-                className={`aba ${nivelFiltro === 'JUNIOR' ? 'aba-ativa' : ''}`}
-                onClick={() => setNivelFiltro('JUNIOR')}
+                className={`aba ${secaoFiltro === 'ESTAGIO' ? 'aba-ativa' : ''}`}
+                onClick={() => setSecaoFiltro('ESTAGIO')}
               >
-                júnior <span className="aba-contagem">{contagemPorNivel.JUNIOR}</span>
+                estágio <span className="aba-contagem">{contagemPorSecao.ESTAGIO}</span>
               </button>
             </div>
 
@@ -330,7 +332,7 @@ export default function App() {
           <div className="nota">
             <IconeBusca tamanho={28} />
             <p className="nota-titulo">nenhuma entrada encontrada</p>
-            <p className="nota-texto">Tente ajustar a busca, o nível ou a abrangência.</p>
+            <p className="nota-texto">Tente ajustar a busca, a seção ou a abrangência.</p>
           </div>
         )}
 

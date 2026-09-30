@@ -5,6 +5,7 @@ import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -14,8 +15,10 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @EnableConfigurationProperties(GupyCrawlerProperties.class)
@@ -28,6 +31,12 @@ public class GupyCrawler implements VagaCrawler {
     private final GupyVagaClassifier classifier;
     private final GupyJobMapper mapper = new GupyJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
+
+    /**
+     * Resultado da leitura da página de cada vaga (menciona Java ou não). Fica em memória
+     * para que cada coleta não releia as mesmas páginas (a descrição raramente muda).
+     */
+    private final Map<Long, Boolean> javaPorId = new ConcurrentHashMap<>();
 
     public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker) {
         this.apiClient = apiClient;
@@ -61,7 +70,7 @@ public class GupyCrawler implements VagaCrawler {
             }
         }
 
-        log.info("GupyCrawler coletou {} vaga(s) de estágio/júnior em tecnologia", vagas.size());
+        log.info("GupyCrawler coletou {} vaga(s) de estágio/júnior em Java", vagas.size());
         return vagas;
     }
 
@@ -76,7 +85,31 @@ public class GupyCrawler implements VagaCrawler {
         if (properties.isApenasRemoto() && !classifier.isRemota(job)) {
             return;
         }
+        if (!isJava(job)) {
+            return;
+        }
         vagas.add(mapper.paraVaga(job, nivel.get()));
+    }
+
+    /** O título basta quando cita Java; senão, a página da vaga é lida atrás dos requisitos. */
+    private boolean isJava(GupyJobDto job) {
+        if (LinguagemJava.mencionadaEm(job.name())) {
+            return true;
+        }
+        Boolean jaLido = javaPorId.get(job.id());
+        if (jaLido != null) {
+            return jaLido;
+        }
+        if (job.jobUrl() == null) {
+            return false;
+        }
+        String texto = apiClient.buscarTextoDaVaga(job.jobUrl());
+        if (texto == null) {
+            return false; // falha de leitura: não entra agora, mas é tentada de novo na próxima coleta
+        }
+        boolean java = LinguagemJava.mencionadaEm(texto);
+        javaPorId.put(job.id(), java);
+        return java;
     }
 
     private boolean podeColetar() {

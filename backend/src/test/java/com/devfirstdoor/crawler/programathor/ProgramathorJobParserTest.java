@@ -44,6 +44,7 @@ class ProgramathorJobParserTest {
                           <span><i class="fas fa-map-marker-alt"></i>Remoto</span>
                           <span><i class="far fa-file-alt"></i>Estágio</span>
                         </div>
+                        <div><span class='tag-list background-gray'>Java</span><span class='tag-list background-gray'>Docker</span></div>
                       </div>
                     </div>
                   </div>
@@ -64,6 +65,7 @@ class ProgramathorJobParserTest {
         assertThat(job.empresa()).isEqualTo("Empresa XPTO");
         assertThat(job.local()).isEqualTo("Remoto");
         assertThat(job.link()).isEqualTo("https://programathor.com.br/jobs/33528-estagio-de-produto-100-remoto");
+        assertThat(job.tags()).containsExactly("Java", "Docker");
     }
 
     @Test

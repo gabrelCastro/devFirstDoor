@@ -21,7 +21,8 @@ public record VagaResponse(
         String fonte,
         LocalDate dataPublicacao,
         LocalDateTime dataColeta,
-        boolean internacional
+        boolean internacional,
+        boolean remoto
 ) {
     private static final Pattern LOCAL_REMOTEOK = Pattern.compile("^Remoto \\((.+)\\)$");
 
@@ -56,8 +57,18 @@ public record VagaResponse(
                 vaga.getFonte(),
                 vaga.getDataPublicacao(),
                 vaga.getDataColeta(),
-                isInternacional(vaga)
+                isInternacional(vaga),
+                isRemoto(vaga)
         );
+    }
+
+    /**
+     * Todas as fontes marcam vagas remotas com o prefixo "Remoto" no local
+     * (Gupy, ProgramaThor e RemoteOK só coletam remotas; o LinkedIn prefixa
+     * as que a descrição indica como remotas).
+     */
+    static boolean isRemoto(Vaga vaga) {
+        return TextNormalizer.normalizar(vaga.getLocal()).startsWith("remoto");
     }
 
     static boolean isInternacional(Vaga vaga) {

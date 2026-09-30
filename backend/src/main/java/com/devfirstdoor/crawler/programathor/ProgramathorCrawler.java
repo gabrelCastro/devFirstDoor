@@ -4,6 +4,7 @@ import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -57,7 +58,7 @@ public class ProgramathorCrawler implements VagaCrawler {
         coletarFiltro(FILTRO_ESTAGIO_REMOTO, NivelVaga.ESTAGIO, vagas, linksVistos);
         coletarFiltro(FILTRO_JUNIOR_REMOTO, NivelVaga.JUNIOR, vagas, linksVistos);
 
-        log.info("ProgramathorCrawler coletou {} vaga(s) remota(s) de estágio/júnior", vagas.size());
+        log.info("ProgramathorCrawler coletou {} vaga(s) remota(s) de estágio/júnior em Java", vagas.size());
         return vagas;
     }
 
@@ -65,6 +66,9 @@ public class ProgramathorCrawler implements VagaCrawler {
         try {
             List<ProgramathorJobDto> jobs = client.buscarTodasAsPaginas(queryString);
             for (ProgramathorJobDto job : jobs) {
+                if (!LinguagemJava.mencionadaEm(job.tags()) && !LinguagemJava.mencionadaEm(job.titulo())) {
+                    continue;
+                }
                 if (linksVistos.add(job.link())) {
                     vagas.add(mapper.paraVaga(job, nivel));
                 }

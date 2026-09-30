@@ -11,6 +11,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class VagaResponseTest {
 
     @Test
+    void isRemoto_deveReconhecerOPrefixoRemotoUsadoPorTodasAsFontes() {
+        assertThat(VagaResponse.isRemoto(vaga("GUPY", "Remoto"))).isTrue();
+        assertThat(VagaResponse.isRemoto(vaga("LINKEDIN", "Remoto (São Paulo, SP)"))).isTrue();
+        assertThat(VagaResponse.isRemoto(vaga("LINKEDIN", "Híbrido (São Paulo, SP)"))).isFalse();
+        assertThat(VagaResponse.isRemoto(vaga("LINKEDIN", "São Paulo, SP"))).isFalse();
+        assertThat(VagaResponse.isRemoto(vaga("LINKEDIN", null))).isFalse();
+    }
+
+    @Test
     void isInternacional_deveReconhecerVagaRemoteOkRestritaAOutroPais() {
         assertThat(VagaResponse.isInternacional(vaga("REMOTEOK", "Remoto (USA Only)"))).isTrue();
         assertThat(VagaResponse.isInternacional(vaga("REMOTEOK", "Remoto (United Kingdom)"))).isTrue();

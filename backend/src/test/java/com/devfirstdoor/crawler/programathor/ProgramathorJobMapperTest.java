@@ -4,6 +4,8 @@ import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ProgramathorJobMapperTest {
@@ -14,7 +16,7 @@ class ProgramathorJobMapperTest {
     void paraVaga_deveMapearCamposBasicos() {
         ProgramathorJobDto job = new ProgramathorJobDto(
                 "Estágio de Produto 100% Remoto", "Empresa XPTO", "Remoto",
-                "https://programathor.com.br/jobs/33528-estagio-remoto");
+                "https://programathor.com.br/jobs/33528-estagio-remoto", List.of("Java"));
 
         Vaga vaga = mapper.paraVaga(job, NivelVaga.ESTAGIO);
 
@@ -22,7 +24,7 @@ class ProgramathorJobMapperTest {
         assertThat(vaga.getEmpresa()).isEqualTo("Empresa XPTO");
         assertThat(vaga.getLocal()).isEqualTo("Remoto");
         assertThat(vaga.getNivel()).isEqualTo(NivelVaga.ESTAGIO);
-        assertThat(vaga.getLink()).isEqualTo("https://programathor.com.br/jobs/33528-estagio-remoto");
+        assertThat(vaga.getLink()).isEqualTo("https://programathor.com.br/jobs/33528-estagio-remoto", List.of("Java"));
         assertThat(vaga.getFonte()).isEqualTo("PROGRAMATHOR");
         assertThat(vaga.getDataPublicacao()).isNull();
     }
@@ -30,7 +32,7 @@ class ProgramathorJobMapperTest {
     @Test
     void paraVaga_deveUsarNaoInformadoQuandoLocalAusente() {
         ProgramathorJobDto job = new ProgramathorJobDto("Desenvolvedor Júnior", "Empresa Y", null,
-                "https://programathor.com.br/jobs/1");
+                "https://programathor.com.br/jobs/1", List.of());
 
         Vaga vaga = mapper.paraVaga(job, NivelVaga.JUNIOR);
 

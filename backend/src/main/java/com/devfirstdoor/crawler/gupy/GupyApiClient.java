@@ -2,10 +2,12 @@ package com.devfirstdoor.crawler.gupy;
 
 import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
 import com.devfirstdoor.crawler.gupy.dto.GupyJobsPageDto;
+import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,9 +20,11 @@ public class GupyApiClient {
 
     private final RestClient restClient;
     private final GupyCrawlerProperties properties;
+    private final GupyJobPageParser jobPageParser;
 
-    public GupyApiClient(GupyCrawlerProperties properties) {
+    public GupyApiClient(GupyCrawlerProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
+        this.jobPageParser = new GupyJobPageParser(objectMapper);
         this.restClient = RestClient.builder()
                 .baseUrl(properties.getBaseUrl())
                 .defaultHeader("User-Agent", USER_AGENT)
@@ -49,6 +53,25 @@ public class GupyApiClient {
             aguardarEntreRequisicoes();
         }
         return resultado;
+    }
+
+    /**
+     * Título, descrição e requisitos da vaga, lidos da página pública dela, ou null
+     * se a página não pôde ser lida.
+     */
+    public String buscarTextoDaVaga(String jobUrl) {
+        aguardarEntreRequisicoes();
+        try {
+            String html = Jsoup.connect(jobUrl)
+                    .userAgent(USER_AGENT)
+                    .timeout(10_000)
+                    .execute()
+                    .body();
+            return jobPageParser.extrairTexto(html);
+        } catch (Exception e) {
+            log.warn("Não foi possível ler a página da vaga {} na Gupy: {}", jobUrl, e.getMessage());
+            return null;
+        }
     }
 
     private GupyJobsPageDto buscarPagina(String termoBusca, int offset, int limit) {

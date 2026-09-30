@@ -5,6 +5,7 @@ import com.devfirstdoor.crawler.remoteok.dto.RemoteOkJobDto;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -57,7 +58,7 @@ public class RemoteOkCrawler implements VagaCrawler {
             log.error("Falha ao processar vagas da RemoteOK: {}", e.getMessage(), e);
         }
 
-        log.info("RemoteOkCrawler coletou {} vaga(s) de estágio/júnior em tecnologia", vagas.size());
+        log.info("RemoteOkCrawler coletou {} vaga(s) de estágio/júnior em Java", vagas.size());
         return vagas;
     }
 
@@ -67,6 +68,9 @@ public class RemoteOkCrawler implements VagaCrawler {
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(job);
         if (nivel.isEmpty() || !classifier.isRelevanteParaTech(job)) {
+            return;
+        }
+        if (!LinguagemJava.mencionadaEm(job.tags()) && !LinguagemJava.mencionadaEm(job.position())) {
             return;
         }
         vagas.add(mapper.paraVaga(job, nivel.get()));
