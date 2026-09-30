@@ -24,11 +24,12 @@ Esta é UMA iteração de um loop: você começa sem memória das anteriores. A 
    - `cd backend && ./mvnw -q test`
    - se mexeu no frontend: `cd frontend && npm run lint && npm run build`
 5. Se passou: marque o item como `[x]` no `fix_plan.md`, com uma linha resumindo o que foi feito, e
-   faça **um** commit (`git add -A && git commit`) com mensagem em português, terminando com:
-   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
+   escreva a mensagem de commit (em português, título na 1ª linha, linha em branco, corpo curto) no
+   arquivo `.ralph-commit-msg` na raiz do repositório. **Não rode `git add` nem `git commit`**: o
+   script do loop roda os testes de novo e faz o commit com essa mensagem.
 6. Se não conseguir fazer passar depois de 2 tentativas: desfaça as mudanças do item
-   (`git checkout -- . && git clean -fd`), marque o item como `[!]` com o motivo no `fix_plan.md`,
-   commite só o `fix_plan.md` e encerre.
+   (`git checkout -- . && git clean -fd`, preservando o `fix_plan.md`), marque o item como `[!]` com
+   o motivo no `fix_plan.md`, escreva a mensagem em `.ralph-commit-msg` e encerre.
 
 ## Regras
 
