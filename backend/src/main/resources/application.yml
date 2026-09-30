@@ -16,6 +16,10 @@ spring:
       path: /h2-console
 
 app:
+  # Área administrativa (/api/admin/**). Sem senha definida ela fica desligada: tudo responde 401.
+  admin:
+    usuario: ${ADMIN_USER:admin}
+    senha: ${ADMIN_PASSWORD:}
   crawler:
     # Intervalo entre coletas agendadas (ex: 6h, 30m, PT6H).
     intervalo: 6h

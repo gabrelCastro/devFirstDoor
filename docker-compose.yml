@@ -26,6 +26,8 @@ services:
       DB_USER: ${DB_USER:-dev_first_door}
       DB_PASSWORD: ${DB_PASSWORD:-dev_first_door}
       LINKEDIN_ENABLED: ${LINKEDIN_ENABLED:-false}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

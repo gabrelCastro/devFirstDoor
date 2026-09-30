@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * (site fora do ar, mudança de HTML/API), o erro é logado e os demais crawlers
  * continuam normalmente.
  *
- * Só uma coleta roda por vez: a inicial, a agendada e a manual (POST /api/vagas/coletar)
+ * Só uma coleta roda por vez: a inicial, a agendada e a manual (POST /api/admin/coletas)
  * podem coincidir, e duas juntas dobrariam as requisições às fontes e poderiam salvar
  * a mesma vaga duas vezes (a deduplicação só enxerga o que já está no banco).
  */

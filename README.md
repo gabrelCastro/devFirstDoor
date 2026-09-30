@@ -30,10 +30,11 @@ Variáveis do `.env`:
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Banco PostgreSQL do Compose |
 | `BACKEND_PORT`, `FRONTEND_PORT` | Portas expostas no host (8080 e 3000) |
 | `LINKEDIN_ENABLED` | Liga o crawler do LinkedIn (padrão `false`; veja abaixo) |
+| `ADMIN_USER`, `ADMIN_PASSWORD` | Login da área administrativa; sem senha ela fica desligada |
 
 Assim que o backend sobe, uma coleta roda em segundo plano (`ColetaInicialRunner`), então o banco
 já fica populado sem passo manual. Depois disso a coleta se repete a cada `app.crawler.intervalo`
-(padrão 6h). Também dá para disparar uma coleta na hora com `POST /api/vagas/coletar`; se já houver
+(padrão 6h). Também dá para disparar uma coleta na hora com `POST /api/admin/coletas`; se já houver
 uma coleta rodando, a nova é ignorada.
 
 Fora do Docker, o backend usa H2 em arquivo (`backend/data/`) e o frontend pode rodar com
@@ -95,8 +96,9 @@ Depois disso:
 - `GET /api/vagas?secao=TODAS|REMOTO|ESTAGIO&escopo=TODAS|NACIONAL|GRINGA&q=...&page=0&size=20`:
   lista paginada. `q` busca em título, empresa e local, sem diferenciar maiúsculas nem acentos.
 - `GET /api/vagas/contagens` (mesmos filtros): total, fontes e contagem de cada aba.
-- `POST /api/vagas/coletar`: roda uma coleta agora e devolve quantas vagas novas cada fonte salvou
-  (`-1` para a fonte que falhou).
+- `POST /api/admin/coletas` (exige login admin via HTTP Basic, com `ADMIN_USER`/`ADMIN_PASSWORD`;
+  sem `ADMIN_PASSWORD` responde 401): roda uma coleta agora e devolve quantas vagas novas cada fonte
+  salvou (`-1` para a fonte que falhou).
 
 ## Testes
 

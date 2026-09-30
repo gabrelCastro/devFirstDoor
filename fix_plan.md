@@ -25,7 +25,12 @@ Faça sempre o primeiro `[ ]`, um por iteração.
 
 # Fase 1: acesso, painel dos crawlers e histórico
 
-## 1. [ ] Autenticação da área administrativa
+## 1. [x] Autenticação da área administrativa
+
+> Feito: Spring Security com HTTP Basic stateless (`SecurityConfig`, `AdminAuthenticationProvider` em
+> tempo constante, `AdminProperties`), `GET /api/admin/me`, `POST /api/vagas/coletar` virou
+> `POST /api/admin/coletas`, 401 sem `WWW-Authenticate` (evita o popup do navegador), variáveis no
+> compose/.env.example e testes em `AdminControllerTest`/`AdminDesligadoTest`.
 
 - Adicionar `spring-boot-starter-security` (e o módulo de testes de segurança) ao `pom.xml`.
 - Configuração conforme as decisões acima. `GET /api/admin/me` devolve o usuário autenticado (o
