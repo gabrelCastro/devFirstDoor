@@ -4,9 +4,11 @@ import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -33,12 +35,20 @@ public class ProgramathorCrawler implements VagaCrawler {
     private final ProgramathorCrawlerProperties properties;
     private final ProgramathorJobMapper mapper = new ProgramathorJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
+    private final ConfiguracaoService configuracaoService;
 
+    @Autowired
     public ProgramathorCrawler(ProgramathorHtmlClient client, ProgramathorCrawlerProperties properties,
-                                RobotsTxtChecker robotsTxtChecker) {
+                                RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
         this.client = client;
         this.properties = properties;
         this.robotsTxtChecker = robotsTxtChecker;
+        this.configuracaoService = configuracaoService;
+    }
+
+    public ProgramathorCrawler(ProgramathorHtmlClient client, ProgramathorCrawlerProperties properties,
+                               RobotsTxtChecker robotsTxtChecker) {
+        this(client, properties, robotsTxtChecker, null);
     }
 
     @Override
@@ -47,8 +57,14 @@ public class ProgramathorCrawler implements VagaCrawler {
     }
 
     @Override
+    public boolean isLigada() {
+        return configuracaoService == null ? properties.isEnabled()
+                : configuracaoService.obter().fonteLigada(getFonte());
+    }
+
+    @Override
     public List<Vaga> coletar() {
-        if (!podeColetar()) {
+        if (!isLigada() || !podeColetar()) {
             return List.of();
         }
 

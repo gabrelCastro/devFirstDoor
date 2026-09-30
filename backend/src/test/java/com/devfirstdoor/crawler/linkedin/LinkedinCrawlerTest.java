@@ -4,8 +4,11 @@ import com.devfirstdoor.crawler.linkedin.LinkedinHtmlClient.LinkedinBloqueadoExc
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import com.devfirstdoor.service.DeduplicacaoService;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,6 +146,20 @@ class LinkedinCrawlerTest {
         crawler().coletar(progresso::add);
 
         assertThat(progresso).containsExactly("termo 1/2", "termo 2/2", "lendo descrições 1/2", "lendo descrições 2/2");
+    }
+
+    @Test
+    void coletar_chaveMestraDesligada_naoDeveFazerRequisicao() {
+        ConfiguracaoService configuracaoService = mock(ConfiguracaoService.class);
+        when(configuracaoService.obter()).thenReturn(new ConfiguracaoColeta(
+                java.util.Map.of("LINKEDIN", true), List.of(), List.of("java júnior"), List.of(), List.of(),
+                Duration.ofHours(6), 7, 0, 0, false, false));
+        LinkedinCrawler crawler = new LinkedinCrawler(client, properties, deduplicacaoService, configuracaoService);
+
+        assertThat(crawler.coletar()).isEmpty();
+
+        verify(client, never()).buscarTodasAsPaginas(anyString());
+        verify(client, never()).buscarDescricao(anyString());
     }
 
     private LinkedinCrawler crawler() {

@@ -28,14 +28,27 @@ app:
     # Vagas que não reaparecem numa coleta bem-sucedida da fonte há mais que isso são removidas.
     dias-para-expirar: 7
     gupy:
+      enabled: true
       base-url: https://employability-portal.gupy.io/api/v1/jobs
       page-size: 100
       request-delay-ms: 1000
       max-paginas-por-termo: 5
+      termos-busca:
+        - estágio tecnologia
+        - estágio ti
+        - desenvolvedor junior
+        - programador junior
+        - java
+        - analista de sistemas junior
+    programathor:
+      enabled: true
+    remoteok:
+      enabled: true
     # Greenhouse e Lever não têm busca entre empresas: liste os identificadores dos
     # boards (boards.greenhouse.io/{empresa}, jobs.lever.co/{empresa}). Vazio = não coleta.
     # Empresas com vagas Java no Brasil e que abrem vagas remotas (verificadas em 2026-09).
     greenhouse:
+      enabled: true
       empresas:
         - btgpactual
         - c6bank
@@ -46,12 +59,22 @@ app:
         - jusbrasil
         - rdstation
     lever:
+      enabled: true
       empresas:
         - ciandt
         - swile
     linkedin:
       # Busca pública (sem login). Ignora o robots.txt do LinkedIn; ligue só para uso pessoal.
       enabled: ${LINKEDIN_ENABLED:false}
+      request-delay-ms: 3000
+      request-jitter-ms: 2000
+      termos-busca:
+        - estágio java
+        - estagiário java
+        - desenvolvedor java júnior
+        - programador java júnior
+        - java júnior
+        - java jr
 
 logging:
   level:

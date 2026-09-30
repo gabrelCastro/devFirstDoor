@@ -1,7 +1,7 @@
 package com.devfirstdoor.service;
 
 import com.devfirstdoor.repository.VagaRepository;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +19,24 @@ public class ExpiracaoVagasService {
 
     private final VagaRepository vagaRepository;
     private final int diasParaExpirar;
+    private final ConfiguracaoService configuracaoService;
 
-    public ExpiracaoVagasService(VagaRepository vagaRepository,
-                                 @Value("${app.crawler.dias-para-expirar:7}") int diasParaExpirar) {
+    @Autowired
+    public ExpiracaoVagasService(VagaRepository vagaRepository, ConfiguracaoService configuracaoService) {
+        this.vagaRepository = vagaRepository;
+        this.configuracaoService = configuracaoService;
+        this.diasParaExpirar = 0;
+    }
+
+    public ExpiracaoVagasService(VagaRepository vagaRepository, int diasParaExpirar) {
         this.vagaRepository = vagaRepository;
         this.diasParaExpirar = diasParaExpirar;
+        this.configuracaoService = null;
     }
 
     @Transactional
     public int removerExpiradas(String fonte, LocalDateTime agora) {
-        return vagaRepository.deleteExpiradas(fonte, agora.minusDays(diasParaExpirar));
+        int dias = configuracaoService != null ? configuracaoService.obter().diasParaExpirar() : diasParaExpirar;
+        return vagaRepository.deleteExpiradas(fonte, agora.minusDays(dias));
     }
 }

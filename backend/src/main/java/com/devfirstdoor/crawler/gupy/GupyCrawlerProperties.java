@@ -7,6 +7,8 @@ import java.util.List;
 @ConfigurationProperties(prefix = "app.crawler.gupy")
 public class GupyCrawlerProperties {
 
+    private boolean enabled = true;
+
     /** URL base da API pública de vagas do portal da Gupy. */
     private String baseUrl = "https://employability-portal.gupy.io/api/v1/jobs";
 
@@ -42,6 +44,14 @@ public class GupyCrawlerProperties {
             "tecnologia da informacao", "suporte tecnico", "infraestrutura de ti",
             "qa", "tester", "dev", "ti"
     );
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public String getBaseUrl() {
         return baseUrl;

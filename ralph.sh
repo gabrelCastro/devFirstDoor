@@ -8,8 +8,13 @@ cd "$(dirname "$0")"
 MAX_ITERACOES="${1:-30}"
 MSG=.ralph-commit-msg
 
-# O commit fica com o script (o claude -p não consegue aprovar permissões de git):
-# só commita se a iteração deixou mensagem, há mudanças e os testes passam aqui também.
+if ! command -v codex >/dev/null 2>&1; then
+    echo "Codex CLI não encontrado no PATH."
+    exit 127
+fi
+
+# O commit fica com o script para manter cada iteração atômica: só commita se a
+# iteração deixou mensagem, há mudanças e os testes passam aqui também.
 commitar_iteracao() {
     if [[ ! -s "$MSG" ]]; then
         echo "Iteração $1 não deixou $MSG; nada a commitar."
@@ -32,7 +37,7 @@ commitar_iteracao() {
             exit 1
         fi
     fi
-    { cat "$MSG"; printf '\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n'; } > "$MSG.final"
+    { cat "$MSG"; printf '\nCo-Authored-By: OpenAI Codex <noreply@openai.com>\n'; } > "$MSG.final"
     rm -f "$MSG"
     git add -A && git commit -q -F "$MSG.final" && git log --oneline -1
     rm -f "$MSG.final"
@@ -50,14 +55,14 @@ for ((i = 1; i <= MAX_ITERACOES; i++)); do
     log="ralph-logs/iteracao-$(date +%Y%m%d-%H%M%S)-$i.log"
     echo "=== Iteração $i/$MAX_ITERACOES ($(date +%H:%M:%S)) → $log"
 
-    claude -p "$(cat PROMPT.md)" \
-        --permission-mode acceptEdits \
-        --allowedTools "Bash(cd:*)" "Bash(./mvnw:*)" "Bash(npm run:*)" "Bash(npm install:*)" \
-                       "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" \
-                       "Bash(git checkout -- :*)" "Bash(git clean -fd:*)" \
-        --disallowedTools "Bash(docker:*)" "Bash(make:*)" "Bash(curl:*)" "Bash(wget:*)" \
-                          "Bash(git push:*)" "Bash(git commit:*)" "Bash(java:*)" "WebFetch" \
-        2>&1 | tee "$log"
+    if ! codex exec \
+            --ephemeral \
+            --approve-for-me \
+            --cd "$PWD" \
+            - < PROMPT.md 2>&1 | tee "$log"; then
+        echo "Codex encerrou com erro. Mudanças mantidas sem commit para revisão."
+        break
+    fi
 
     commitar_iteracao "$i"
 

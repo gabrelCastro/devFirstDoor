@@ -23,7 +23,8 @@ public interface VagaCrawler {
 
     /**
      * Se a fonte tem o que coletar com a configuração atual. Greenhouse e Lever sem
-     * empresas cadastradas ficam desligados (o LinkedIn desligado nem vira bean).
+     * empresas cadastradas ficam desligados; o LinkedIn sempre existe, mas também
+     * respeita sua chave-mestra do ambiente.
      */
     default boolean isLigada() {
         return true;

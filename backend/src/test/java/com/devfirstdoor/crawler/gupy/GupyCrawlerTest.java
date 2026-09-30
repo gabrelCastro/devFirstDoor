@@ -3,9 +3,12 @@ package com.devfirstdoor.crawler.gupy;
 import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -90,6 +93,30 @@ class GupyCrawlerTest {
         crawler.coletar(progresso::add);
 
         assertThat(progresso).containsExactly("termo 1/2", "termo 2/2");
+    }
+
+    @Test
+    void coletar_deveRelerOsTermosDaConfiguracaoEmCadaColeta() {
+        ConfiguracaoService configuracaoService = mock(ConfiguracaoService.class);
+        when(configuracaoService.obter()).thenReturn(
+                configuracao(List.of("primeiro")),
+                configuracao(List.of("segundo"))
+        );
+        when(apiClient.buscarTodasAsPaginas(anyString())).thenReturn(List.of());
+        GupyCrawler crawlerDinamico = new GupyCrawler(
+                apiClient, properties, robotsTxtChecker, configuracaoService);
+
+        crawlerDinamico.coletar();
+        crawlerDinamico.coletar();
+
+        verify(apiClient).buscarTodasAsPaginas("primeiro");
+        verify(apiClient).buscarTodasAsPaginas("segundo");
+    }
+
+    private static ConfiguracaoColeta configuracao(List<String> termos) {
+        return new ConfiguracaoColeta(
+                java.util.Map.of("GUPY", true), termos, List.of(), List.of(), List.of(),
+                Duration.ofHours(6), 7, 3000, 2000, false, false);
     }
 
     private static GupyJobDto job(Long id, String titulo) {

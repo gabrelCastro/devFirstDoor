@@ -7,6 +7,8 @@ import java.util.List;
 @ConfigurationProperties(prefix = "app.crawler.lever")
 public class LeverCrawlerProperties {
 
+    private boolean enabled = true;
+
     /** URL base da Postings API pública do Lever. */
     private String baseUrl = "https://api.lever.co";
 
@@ -34,6 +36,14 @@ public class LeverCrawlerProperties {
 
     /** Usadas no local quando a vaga não informa a modalidade ("workplaceType"). */
     private List<String> palavrasRemoto = List.of("remote", "remoto", "anywhere", "home office", "teletrabalho");
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public String getBaseUrl() {
         return baseUrl;

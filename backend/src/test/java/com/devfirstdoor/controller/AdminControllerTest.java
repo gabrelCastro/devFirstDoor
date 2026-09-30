@@ -3,12 +3,14 @@ package com.devfirstdoor.controller;
 import com.devfirstdoor.domain.ExecucaoColeta;
 import com.devfirstdoor.domain.ExecucaoFonte;
 import com.devfirstdoor.domain.OrigemColeta;
+import com.devfirstdoor.repository.ConfiguracaoRepository;
 import com.devfirstdoor.repository.ExecucaoColetaRepository;
 import com.devfirstdoor.repository.ExecucaoFonteRepository;
 import com.devfirstdoor.service.AndamentoColeta;
 import com.devfirstdoor.service.ColetaService;
 import com.devfirstdoor.service.HistoricoColetaService;
 import com.devfirstdoor.service.PausaAgendamento;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,6 +33,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,6 +63,14 @@ class AdminControllerTest {
 
     @Autowired
     private PausaAgendamento pausaAgendamento;
+
+    @Autowired
+    private ConfiguracaoRepository configuracaoRepository;
+
+    @BeforeEach
+    void limparConfiguracao() {
+        configuracaoRepository.deleteAll();
+    }
 
     @Test
     void apiPublica_deveContinuarAbertaSemCredencial() throws Exception {
@@ -200,7 +211,7 @@ class AdminControllerTest {
     }
 
     /**
-     * Nos testes o LinkedIn está desligado (sem bean) e Greenhouse/Lever não têm empresas:
+     * Nos testes o LinkedIn está desligado e Greenhouse/Lever não têm empresas:
      * todos precisam aparecer mesmo assim, como desligados.
      */
     @Test
@@ -277,6 +288,64 @@ class AdminControllerTest {
         mockMvc.perform(get("/api/vagas").header(HttpHeaders.ORIGIN, "http://localhost:5173"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
+    }
+
+    @Test
+    void configuracao_semCredencial_deveResponder401() throws Exception {
+        mockMvc.perform(get("/api/admin/configuracao")).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/admin/configuracao")
+                        .contentType("application/json").content(configuracaoJson(30, 7, "java")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void configuracao_deveConsultarPadroesESalvarValoresValidos() throws Exception {
+        String credencial = basic("admin", "segredo");
+        mockMvc.perform(get("/api/admin/configuracao").header(HttpHeaders.AUTHORIZATION, credencial))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fontesLigadas.GUPY").value(true))
+                .andExpect(jsonPath("$.fontesLigadas.LINKEDIN").value(false))
+                .andExpect(jsonPath("$.intervaloColetaMinutos").value(360))
+                .andExpect(jsonPath("$.diasParaExpirar").value(7));
+
+        mockMvc.perform(put("/api/admin/configuracao")
+                        .header(HttpHeaders.AUTHORIZATION, credencial)
+                        .contentType("application/json")
+                        .content(configuracaoJson(45, 10, "java spring")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intervaloColetaMinutos").value(45))
+                .andExpect(jsonPath("$.diasParaExpirar").value(10))
+                .andExpect(jsonPath("$.termosBuscaGupy[0]").value("java spring"));
+    }
+
+    @Test
+    void configuracao_invalida_deveResponder400ComMensagemClara() throws Exception {
+        mockMvc.perform(put("/api/admin/configuracao")
+                        .header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo"))
+                        .contentType("application/json")
+                        .content(configuracaoJson(20, 7, "java")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value("O intervalo da coleta deve ser de pelo menos 30 minutos"));
+    }
+
+    private static String configuracaoJson(int intervalo, int dias, String termoGupy) {
+        return """
+                {
+                  "fontesLigadas": {
+                    "GUPY": true, "PROGRAMATHOR": true, "REMOTEOK": true,
+                    "LINKEDIN": false, "GREENHOUSE": true, "LEVER": true
+                  },
+                  "termosBuscaGupy": ["%s"],
+                  "termosBuscaLinkedin": ["estágio java"],
+                  "empresasGreenhouse": [],
+                  "empresasLever": [],
+                  "intervaloColetaMinutos": %d,
+                  "diasParaExpirar": %d,
+                  "pausaLinkedinMs": 3000,
+                  "variacaoPausaLinkedinMs": 2000,
+                  "agendamentoPausado": false
+                }
+                """.formatted(termoGupy, intervalo, dias);
     }
 
     static String basic(String usuario, String senha) {

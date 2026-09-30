@@ -7,6 +7,8 @@ import java.util.List;
 @ConfigurationProperties(prefix = "app.crawler.greenhouse")
 public class GreenhouseCrawlerProperties {
 
+    private boolean enabled = true;
+
     /** URL base da Job Board API pública do Greenhouse. */
     private String baseUrl = "https://boards-api.greenhouse.io";
 
@@ -34,6 +36,14 @@ public class GreenhouseCrawlerProperties {
 
     /** O Greenhouse não tem campo de modalidade: a vaga é remota se o local disser. */
     private List<String> palavrasRemoto = List.of("remote", "remoto", "anywhere", "home office", "teletrabalho");
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public String getBaseUrl() {
         return baseUrl;

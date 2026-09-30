@@ -6,9 +6,12 @@ import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -32,6 +35,7 @@ public class GupyCrawler implements VagaCrawler {
     private final GupyVagaClassifier classifier;
     private final GupyJobMapper mapper = new GupyJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
+    private final ConfiguracaoService configuracaoService;
 
     /**
      * Resultado da leitura da página de cada vaga (menciona Java ou não). Fica em memória
@@ -39,16 +43,29 @@ public class GupyCrawler implements VagaCrawler {
      */
     private final Map<Long, Boolean> javaPorId = new ConcurrentHashMap<>();
 
-    public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker) {
+    @Autowired
+    public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
+                       ConfiguracaoService configuracaoService) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new GupyVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
+        this.configuracaoService = configuracaoService;
+    }
+
+    public GupyCrawler(GupyApiClient apiClient, GupyCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker) {
+        this(apiClient, properties, robotsTxtChecker, null);
     }
 
     @Override
     public String getFonte() {
         return GupyJobMapper.FONTE;
+    }
+
+    @Override
+    public boolean isLigada() {
+        return configuracaoService == null ? properties.isEnabled()
+                : configuracaoService.obter().fonteLigada(getFonte());
     }
 
     @Override
@@ -58,13 +75,14 @@ public class GupyCrawler implements VagaCrawler {
 
     @Override
     public List<Vaga> coletar(ProgressoColeta progresso) {
-        if (!podeColetar()) {
+        ConfiguracaoColeta configuracao = configuracaoService != null ? configuracaoService.obter() : null;
+        if (!(configuracao != null ? configuracao.fonteLigada(getFonte()) : properties.isEnabled()) || !podeColetar()) {
             return List.of();
         }
 
         List<Vaga> vagas = new ArrayList<>();
         Set<Long> idsVistos = new HashSet<>();
-        List<String> termos = properties.getTermosBusca();
+        List<String> termos = configuracao != null ? configuracao.termosBuscaGupy() : properties.getTermosBusca();
 
         for (int i = 0; i < termos.size(); i++) {
             String termo = termos.get(i);

@@ -7,6 +7,8 @@ import java.util.List;
 @ConfigurationProperties(prefix = "app.crawler.remoteok")
 public class RemoteOkCrawlerProperties {
 
+    private boolean enabled = true;
+
     /** URL base da API pública da RemoteOK. */
     private String baseUrl = "https://remoteok.com";
 
@@ -42,6 +44,14 @@ public class RemoteOkCrawlerProperties {
             "golang", "php", "ruby", "kotlin", "swift", "typescript",
             "data scientist", "data analyst", "data engineer"
     );
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public String getBaseUrl() {
         return baseUrl;

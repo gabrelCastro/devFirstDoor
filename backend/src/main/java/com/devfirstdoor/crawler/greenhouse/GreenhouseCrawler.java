@@ -5,8 +5,11 @@ import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseJobDto;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -28,13 +31,21 @@ public class GreenhouseCrawler implements VagaCrawler {
     private final GreenhouseVagaClassifier classifier;
     private final GreenhouseJobMapper mapper = new GreenhouseJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
+    private final ConfiguracaoService configuracaoService;
 
+    @Autowired
     public GreenhouseCrawler(GreenhouseApiClient apiClient, GreenhouseCrawlerProperties properties,
-                             RobotsTxtChecker robotsTxtChecker) {
+                             RobotsTxtChecker robotsTxtChecker, ConfiguracaoService configuracaoService) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new GreenhouseVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
+        this.configuracaoService = configuracaoService;
+    }
+
+    public GreenhouseCrawler(GreenhouseApiClient apiClient, GreenhouseCrawlerProperties properties,
+                             RobotsTxtChecker robotsTxtChecker) {
+        this(apiClient, properties, robotsTxtChecker, null);
     }
 
     @Override
@@ -44,19 +55,26 @@ public class GreenhouseCrawler implements VagaCrawler {
 
     @Override
     public boolean isLigada() {
-        return !properties.getEmpresas().isEmpty();
+        if (configuracaoService == null) {
+            return properties.isEnabled() && !properties.getEmpresas().isEmpty();
+        }
+        ConfiguracaoColeta configuracao = configuracaoService.obter();
+        return configuracao.fonteLigada(getFonte()) && !configuracao.empresasGreenhouse().isEmpty();
     }
 
     @Override
     public List<Vaga> coletar() {
-        if (!isLigada() || !podeColetar()) {
+        ConfiguracaoColeta configuracao = configuracaoService != null ? configuracaoService.obter() : null;
+        List<String> empresas = configuracao != null ? configuracao.empresasGreenhouse() : properties.getEmpresas();
+        boolean ligada = configuracao != null ? configuracao.fonteLigada(getFonte()) : properties.isEnabled();
+        if (!ligada || empresas.isEmpty() || !podeColetar()) {
             return List.of();
         }
 
         List<Vaga> vagas = new ArrayList<>();
         Set<Long> idsVistos = new HashSet<>();
 
-        for (String empresa : properties.getEmpresas()) {
+        for (String empresa : empresas) {
             try {
                 for (GreenhouseJobDto job : apiClient.buscarVagas(empresa)) {
                     processarJob(job, empresa, idsVistos, vagas);

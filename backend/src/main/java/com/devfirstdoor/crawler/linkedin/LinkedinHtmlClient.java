@@ -5,7 +5,9 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -16,7 +18,6 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
-@ConditionalOnProperty(prefix = "app.crawler.linkedin", name = "enabled", havingValue = "true")
 public class LinkedinHtmlClient {
 
     private static final Logger log = LoggerFactory.getLogger(LinkedinHtmlClient.class);
@@ -24,10 +25,17 @@ public class LinkedinHtmlClient {
     private static final String CAMINHO_DETALHE = "/jobs-guest/jobs/api/jobPosting/";
 
     private final LinkedinCrawlerProperties properties;
+    private final ConfiguracaoService configuracaoService;
     private final LinkedinJobParser parser = new LinkedinJobParser();
 
-    public LinkedinHtmlClient(LinkedinCrawlerProperties properties) {
+    @Autowired
+    public LinkedinHtmlClient(LinkedinCrawlerProperties properties, ConfiguracaoService configuracaoService) {
         this.properties = properties;
+        this.configuracaoService = configuracaoService;
+    }
+
+    public LinkedinHtmlClient(LinkedinCrawlerProperties properties) {
+        this(properties, null);
     }
 
     /**
@@ -116,11 +124,14 @@ public class LinkedinHtmlClient {
     }
 
     private void aguardarEntreRequisicoes() {
-        long jitter = properties.getRequestJitterMs() > 0
-                ? ThreadLocalRandom.current().nextLong(properties.getRequestJitterMs())
+        ConfiguracaoColeta configuracao = configuracaoService != null ? configuracaoService.obter() : null;
+        long pausa = configuracao != null ? configuracao.pausaLinkedinMs() : properties.getRequestDelayMs();
+        long variacao = configuracao != null ? configuracao.variacaoPausaLinkedinMs() : properties.getRequestJitterMs();
+        long jitter = variacao > 0
+                ? ThreadLocalRandom.current().nextLong(variacao)
                 : 0;
         try {
-            Thread.sleep(properties.getRequestDelayMs() + jitter);
+            Thread.sleep(pausa + jitter);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

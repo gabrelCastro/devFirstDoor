@@ -1,9 +1,12 @@
 package com.devfirstdoor.controller;
 
 import com.devfirstdoor.controller.dto.ExecucaoColetaResponse;
+import com.devfirstdoor.controller.dto.ConfiguracaoAdminRequest;
+import com.devfirstdoor.controller.dto.ConfiguracaoAdminResponse;
 import com.devfirstdoor.controller.dto.PainelCrawlersResponse;
 import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.service.ColetaService;
+import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.service.EstadoCrawlersService;
 import com.devfirstdoor.service.HistoricoColetaService;
 import com.devfirstdoor.service.PausaAgendamento;
@@ -14,8 +17,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,13 +35,16 @@ public class AdminController {
     private final HistoricoColetaService historicoColetaService;
     private final EstadoCrawlersService estadoCrawlersService;
     private final PausaAgendamento pausaAgendamento;
+    private final ConfiguracaoService configuracaoService;
 
     public AdminController(ColetaService coletaService, HistoricoColetaService historicoColetaService,
-                           EstadoCrawlersService estadoCrawlersService, PausaAgendamento pausaAgendamento) {
+                           EstadoCrawlersService estadoCrawlersService, PausaAgendamento pausaAgendamento,
+                           ConfiguracaoService configuracaoService) {
         this.coletaService = coletaService;
         this.historicoColetaService = historicoColetaService;
         this.estadoCrawlersService = estadoCrawlersService;
         this.pausaAgendamento = pausaAgendamento;
+        this.configuracaoService = configuracaoService;
     }
 
     /** Usado pelo frontend para validar o login. */
@@ -99,5 +108,20 @@ public class AdminController {
     @GetMapping("/execucoes")
     public Page<ExecucaoColetaResponse> execucoes(@PageableDefault(size = 20) Pageable pageable) {
         return historicoColetaService.listar(pageable);
+    }
+
+    @GetMapping("/configuracao")
+    public ConfiguracaoAdminResponse consultarConfiguracao() {
+        return configuracaoService.consultar();
+    }
+
+    @PutMapping("/configuracao")
+    public ConfiguracaoAdminResponse salvarConfiguracao(@RequestBody ConfiguracaoAdminRequest request) {
+        return configuracaoService.salvar(request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> configuracaoInvalida(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of("mensagem", e.getMessage()));
     }
 }

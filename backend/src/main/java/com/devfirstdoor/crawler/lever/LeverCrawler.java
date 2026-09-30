@@ -5,8 +5,11 @@ import com.devfirstdoor.crawler.lever.dto.LeverPostingDto;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.robots.RobotsTxtChecker;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -28,12 +31,21 @@ public class LeverCrawler implements VagaCrawler {
     private final LeverVagaClassifier classifier;
     private final LeverJobMapper mapper = new LeverJobMapper();
     private final RobotsTxtChecker robotsTxtChecker;
+    private final ConfiguracaoService configuracaoService;
 
-    public LeverCrawler(LeverApiClient apiClient, LeverCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker) {
+    @Autowired
+    public LeverCrawler(LeverApiClient apiClient, LeverCrawlerProperties properties, RobotsTxtChecker robotsTxtChecker,
+                        ConfiguracaoService configuracaoService) {
         this.apiClient = apiClient;
         this.properties = properties;
         this.classifier = new LeverVagaClassifier(properties);
         this.robotsTxtChecker = robotsTxtChecker;
+        this.configuracaoService = configuracaoService;
+    }
+
+    public LeverCrawler(LeverApiClient apiClient, LeverCrawlerProperties properties,
+                        RobotsTxtChecker robotsTxtChecker) {
+        this(apiClient, properties, robotsTxtChecker, null);
     }
 
     @Override
@@ -43,19 +55,26 @@ public class LeverCrawler implements VagaCrawler {
 
     @Override
     public boolean isLigada() {
-        return !properties.getEmpresas().isEmpty();
+        if (configuracaoService == null) {
+            return properties.isEnabled() && !properties.getEmpresas().isEmpty();
+        }
+        ConfiguracaoColeta configuracao = configuracaoService.obter();
+        return configuracao.fonteLigada(getFonte()) && !configuracao.empresasLever().isEmpty();
     }
 
     @Override
     public List<Vaga> coletar() {
-        if (!isLigada() || !podeColetar()) {
+        ConfiguracaoColeta configuracao = configuracaoService != null ? configuracaoService.obter() : null;
+        List<String> empresas = configuracao != null ? configuracao.empresasLever() : properties.getEmpresas();
+        boolean ligada = configuracao != null ? configuracao.fonteLigada(getFonte()) : properties.isEnabled();
+        if (!ligada || empresas.isEmpty() || !podeColetar()) {
             return List.of();
         }
 
         List<Vaga> vagas = new ArrayList<>();
         Set<String> idsVistos = new HashSet<>();
 
-        for (String empresa : properties.getEmpresas()) {
+        for (String empresa : empresas) {
             try {
                 for (LeverPostingDto posting : apiClient.buscarVagas(empresa)) {
                     processarPosting(posting, empresa, idsVistos, vagas);

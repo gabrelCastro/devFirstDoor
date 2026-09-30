@@ -2,13 +2,12 @@ package com.devfirstdoor.runner;
 
 import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.service.ColetaService;
+import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.service.PausaAgendamento;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -23,7 +22,6 @@ import java.time.LocalDateTime;
  * de rede externa ao rodar "mvn test".
  */
 @Component
-@EnableScheduling
 @ConditionalOnProperty(prefix = "app.crawler.agendamento", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class ColetaAgendadaRunner {
 
@@ -32,17 +30,27 @@ public class ColetaAgendadaRunner {
     private final ColetaService coletaService;
     private final PausaAgendamento pausa;
     private final Duration intervalo;
+    private final ConfiguracaoService configuracaoService;
     private volatile LocalDateTime proximaColeta;
 
+    @Autowired
     public ColetaAgendadaRunner(ColetaService coletaService, PausaAgendamento pausa,
-                                @Value("${app.crawler.intervalo:6h}") Duration intervalo) {
+                                ConfiguracaoService configuracaoService) {
         this.coletaService = coletaService;
         this.pausa = pausa;
+        this.configuracaoService = configuracaoService;
+        this.intervalo = null;
+        this.proximaColeta = LocalDateTime.now().plus(configuracaoService.obter().intervaloColeta());
+    }
+
+    public ColetaAgendadaRunner(ColetaService coletaService, PausaAgendamento pausa, Duration intervalo) {
+        this.coletaService = coletaService;
+        this.pausa = pausa;
+        this.configuracaoService = null;
         this.intervalo = intervalo;
         this.proximaColeta = LocalDateTime.now().plus(intervalo);
     }
 
-    @Scheduled(fixedDelayString = "${app.crawler.intervalo:6h}", initialDelayString = "${app.crawler.intervalo:6h}")
     public void coletar() {
         try {
             if (pausa.isPausado()) {
@@ -53,12 +61,20 @@ public class ColetaAgendadaRunner {
             coletaService.executarTodos(OrigemColeta.AGENDADA);
         } finally {
             // fixedDelay: a próxima conta a partir do fim desta
-            proximaColeta = LocalDateTime.now().plus(intervalo);
+            proximaColeta = LocalDateTime.now().plus(intervaloAtual());
         }
     }
 
     /** Horário previsto da próxima coleta agendada, para o painel admin. */
     public LocalDateTime getProximaColeta() {
         return proximaColeta;
+    }
+
+    void definirProximaColeta(LocalDateTime proximaColeta) {
+        this.proximaColeta = proximaColeta;
+    }
+
+    private Duration intervaloAtual() {
+        return configuracaoService != null ? configuracaoService.obter().intervaloColeta() : intervalo;
     }
 }

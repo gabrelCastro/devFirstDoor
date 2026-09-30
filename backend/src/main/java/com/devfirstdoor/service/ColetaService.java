@@ -98,8 +98,8 @@ public class ColetaService {
     }
 
     /**
-     * Dispara a coleta de uma fonte só, em segundo plano. Uma fonte conhecida sem crawler
-     * registrado (LinkedIn com LINKEDIN_ENABLED=false) conta como desligada, não inexistente.
+     * Dispara a coleta de uma fonte só, em segundo plano. Fontes conhecidas mas desligadas
+     * pela configuração retornam um resultado diferente de uma fonte inexistente.
      */
     public Disparo disparar(OrigemColeta origem, String fonte) {
         Optional<VagaCrawler> crawler = crawlers.stream()

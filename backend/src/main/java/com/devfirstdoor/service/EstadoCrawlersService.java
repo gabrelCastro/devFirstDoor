@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
  * Monta o painel dos crawlers: junta o estado ao vivo ({@link AndamentoColeta}), o
  * histórico gravado e o agendamento.
  *
- * Lista todas as fontes conhecidas, e não só os beans registrados: o LinkedIn desligado
- * nem vira bean, mas precisa aparecer no painel como desligado.
+ * Usa uma ordem fixa para o painel continuar estável mesmo quando novas fontes forem
+ * adicionadas ou alguma delas estiver desligada.
  */
 @Service
 public class EstadoCrawlersService {

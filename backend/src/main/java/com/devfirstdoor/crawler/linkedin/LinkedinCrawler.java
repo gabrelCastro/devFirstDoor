@@ -6,10 +6,12 @@ import com.devfirstdoor.crawler.linkedin.LinkedinHtmlClient.LinkedinBloqueadoExc
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.service.DeduplicacaoService;
+import com.devfirstdoor.service.ConfiguracaoColeta;
+import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.util.LinguagemJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -26,9 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * sem conta e sem login.
  *
  * Diferente dos outros crawlers, este NÃO consulta o {@code RobotsTxtChecker}: o
- * robots.txt do LinkedIn proíbe esses caminhos. Por isso só é registrado com
- * {@code app.crawler.linkedin.enabled=true}, uma escolha explícita para uso pessoal
- * e em baixo volume. Se o LinkedIn limitar o acesso (429/999), a coleta desta
+ * robots.txt do LinkedIn proíbe esses caminhos. Por isso a coleta só acontece com
+ * {@code LINKEDIN_ENABLED=true} e a fonte ligada no painel, uma escolha explícita para
+ * uso pessoal e em baixo volume. Se o LinkedIn limitar o acesso (429/999), a coleta desta
  * execução é interrompida em vez de insistir.
  *
  * A busca não informa a modalidade (remoto/híbrido/presencial) nem os requisitos, então
@@ -37,7 +39,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * não pedirem Java, são puladas antes disso, para não repetir requisições a cada coleta.
  */
 @Component
-@ConditionalOnProperty(prefix = "app.crawler.linkedin", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(LinkedinCrawlerProperties.class)
 public class LinkedinCrawler implements VagaCrawler {
 
@@ -48,20 +49,33 @@ public class LinkedinCrawler implements VagaCrawler {
     private final LinkedinVagaClassifier classifier;
     private final LinkedinJobMapper mapper = new LinkedinJobMapper();
     private final DeduplicacaoService deduplicacaoService;
+    private final ConfiguracaoService configuracaoService;
     private final Set<String> hashesSemJava = ConcurrentHashMap.newKeySet();
     private volatile int jaSalvasNaUltimaColeta;
 
+    @Autowired
     public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
-                           DeduplicacaoService deduplicacaoService) {
+                           DeduplicacaoService deduplicacaoService, ConfiguracaoService configuracaoService) {
         this.client = client;
         this.properties = properties;
         this.classifier = new LinkedinVagaClassifier(properties);
         this.deduplicacaoService = deduplicacaoService;
+        this.configuracaoService = configuracaoService;
+    }
+
+    public LinkedinCrawler(LinkedinHtmlClient client, LinkedinCrawlerProperties properties,
+                           DeduplicacaoService deduplicacaoService) {
+        this(client, properties, deduplicacaoService, null);
     }
 
     @Override
     public String getFonte() {
         return LinkedinJobMapper.FONTE;
+    }
+
+    @Override
+    public boolean isLigada() {
+        return configuracaoService == null || configuracaoService.obter().fonteLigada(getFonte());
     }
 
     @Override
@@ -71,7 +85,12 @@ public class LinkedinCrawler implements VagaCrawler {
 
     @Override
     public List<Vaga> coletar(ProgressoColeta progresso) {
-        List<Candidata> candidatas = buscarCandidatas(progresso);
+        ConfiguracaoColeta configuracao = configuracaoService != null ? configuracaoService.obter() : null;
+        if (configuracao != null && !configuracao.fonteLigada(getFonte())) {
+            return List.of();
+        }
+        List<String> termos = configuracao != null ? configuracao.termosBuscaLinkedin() : properties.getTermosBusca();
+        List<Candidata> candidatas = buscarCandidatas(progresso, termos);
         List<Vaga> vagas = new ArrayList<>();
 
         for (int i = 0; i < candidatas.size(); i++) {
@@ -110,13 +129,11 @@ public class LinkedinCrawler implements VagaCrawler {
      * existem não são devolvidas (para não reler a descrição), então têm a visita
      * registrada aqui, senão expirariam mesmo continuando na busca.
      */
-    private List<Candidata> buscarCandidatas(ProgressoColeta progresso) {
+    private List<Candidata> buscarCandidatas(ProgressoColeta progresso, List<String> termos) {
         List<Candidata> candidatas = new ArrayList<>();
         Set<String> hashesVistos = new HashSet<>();
         Set<String> hashesJaSalvos = new HashSet<>();
         LocalDateTime inicio = LocalDateTime.now();
-        List<String> termos = properties.getTermosBusca();
-
         for (int i = 0; i < termos.size(); i++) {
             String termo = termos.get(i);
             progresso.informar("termo %d/%d".formatted(i + 1, termos.size()));

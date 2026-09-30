@@ -119,7 +119,11 @@ Faça sempre o primeiro `[ ]`, um por iteração.
 
 # Fase 2: configuração pelo painel e moderação de vagas
 
-## 6. [ ] Configuração persistida e lida em tempo de execução (backend)
+## 6. [x] Configuração persistida e lida em tempo de execução (backend)
+
+> Feito: tabela chave→JSON e `ConfiguracaoService` com padrões do yml; fontes, termos, empresas,
+> expiração, pausas e agendamento passam a ser lidos dinamicamente; LinkedIn sempre registrado sob
+> a chave-mestra; agendamento com trigger dinâmico; `GET/PUT /api/admin/configuracao` validados e testados.
 
 - Tabela de configuração (chave → valor JSON) com os valores do `application.yml` como padrão:
   fonte ligada/desligada, termos de busca (LinkedIn, Gupy), empresas (Greenhouse, Lever), intervalo
