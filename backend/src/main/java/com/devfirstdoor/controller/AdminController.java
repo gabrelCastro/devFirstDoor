@@ -4,12 +4,16 @@ import com.devfirstdoor.controller.dto.ExecucaoColetaResponse;
 import com.devfirstdoor.controller.dto.ConfiguracaoAdminRequest;
 import com.devfirstdoor.controller.dto.ConfiguracaoAdminResponse;
 import com.devfirstdoor.controller.dto.PainelCrawlersResponse;
+import com.devfirstdoor.controller.dto.TesteBoardRequest;
+import com.devfirstdoor.controller.dto.TesteBoardResponse;
 import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.service.ColetaService;
 import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.service.EstadoCrawlersService;
 import com.devfirstdoor.service.HistoricoColetaService;
 import com.devfirstdoor.service.PausaAgendamento;
+import com.devfirstdoor.service.TesteBoardService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -36,15 +40,17 @@ public class AdminController {
     private final EstadoCrawlersService estadoCrawlersService;
     private final PausaAgendamento pausaAgendamento;
     private final ConfiguracaoService configuracaoService;
+    private final TesteBoardService testeBoardService;
 
     public AdminController(ColetaService coletaService, HistoricoColetaService historicoColetaService,
                            EstadoCrawlersService estadoCrawlersService, PausaAgendamento pausaAgendamento,
-                           ConfiguracaoService configuracaoService) {
+                           ConfiguracaoService configuracaoService, TesteBoardService testeBoardService) {
         this.coletaService = coletaService;
         this.historicoColetaService = historicoColetaService;
         this.estadoCrawlersService = estadoCrawlersService;
         this.pausaAgendamento = pausaAgendamento;
         this.configuracaoService = configuracaoService;
+        this.testeBoardService = testeBoardService;
     }
 
     /** Usado pelo frontend para validar o login. */
@@ -118,6 +124,12 @@ public class AdminController {
     @PutMapping("/configuracao")
     public ConfiguracaoAdminResponse salvarConfiguracao(@RequestBody ConfiguracaoAdminRequest request) {
         return configuracaoService.salvar(request);
+    }
+
+    /** Testa um board sem incluí-lo na configuração nem salvar as vagas encontradas. */
+    @PostMapping("/boards/testar")
+    public TesteBoardResponse testarBoard(@Valid @RequestBody TesteBoardRequest request) {
+        return testeBoardService.testar(request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

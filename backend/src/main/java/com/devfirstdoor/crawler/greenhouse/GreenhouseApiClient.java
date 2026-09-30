@@ -1,11 +1,14 @@
 package com.devfirstdoor.crawler.greenhouse;
 
+import com.devfirstdoor.crawler.ConsultaBoard;
 import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseJobDto;
 import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseJobsDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 
@@ -31,16 +34,29 @@ public class GreenhouseApiClient {
      * se a requisição falhar (board inexistente, API fora do ar).
      */
     public List<GreenhouseJobDto> buscarVagas(String empresa) {
+        try {
+            return buscarBoard(empresa).vagas();
+        } catch (Exception e) {
+            log.error("Falha ao buscar vagas no Greenhouse (empresa '{}'): {}", empresa, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Consulta usada pelo painel, que precisa diferenciar 404 de um board existente e vazio. */
+    public ConsultaBoard<GreenhouseJobDto> buscarBoard(String empresa) {
         aguardarEntreRequisicoes();
         try {
             GreenhouseJobsDto resposta = restClient.get()
                     .uri("/v1/boards/{empresa}/jobs?content=true", empresa)
                     .retrieve()
                     .body(GreenhouseJobsDto.class);
-            return resposta == null || resposta.jobs() == null ? List.of() : resposta.jobs();
-        } catch (Exception e) {
-            log.error("Falha ao buscar vagas no Greenhouse (empresa '{}'): {}", empresa, e.getMessage());
-            return List.of();
+            List<GreenhouseJobDto> vagas = resposta == null ? List.of() : resposta.jobs();
+            return ConsultaBoard.existente(vagas);
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
+                return ConsultaBoard.inexistente();
+            }
+            throw e;
         }
     }
 

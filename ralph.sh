@@ -66,11 +66,6 @@ for ((i = 1; i <= MAX_ITERACOES; i++)); do
 
     commitar_iteracao "$i"
 
-    if grep -q "BACKLOG CONCLUÍDO" "$log"; then
-        echo "Backlog concluído."
-        break
-    fi
-
     if [[ "$(git rev-parse HEAD)" == "$antes" ]]; then
         ((sem_progresso++))
         echo "Iteração sem commit novo ($sem_progresso seguida(s))."

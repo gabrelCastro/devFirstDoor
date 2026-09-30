@@ -1,5 +1,10 @@
 package com.devfirstdoor.controller;
 
+import com.devfirstdoor.crawler.ConsultaBoard;
+import com.devfirstdoor.crawler.greenhouse.GreenhouseApiClient;
+import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseJobDto;
+import com.devfirstdoor.crawler.greenhouse.dto.GreenhouseLocationDto;
+import com.devfirstdoor.crawler.lever.LeverApiClient;
 import com.devfirstdoor.domain.ExecucaoColeta;
 import com.devfirstdoor.domain.ExecucaoFonte;
 import com.devfirstdoor.domain.OrigemColeta;
@@ -48,6 +53,13 @@ class AdminControllerTest {
     /** Mock: a coleta real faria requisições às fontes. */
     @MockitoBean
     private ColetaService coletaService;
+
+    /** Clients falsos garantem que os testes do endpoint nunca consultem os ATSs. */
+    @MockitoBean
+    private GreenhouseApiClient greenhouseApiClient;
+
+    @MockitoBean
+    private LeverApiClient leverApiClient;
 
     @Autowired
     private HistoricoColetaService historicoColetaService;
@@ -326,6 +338,60 @@ class AdminControllerTest {
                         .content(configuracaoJson(20, 7, "java")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensagem").value("O intervalo da coleta deve ser de pelo menos 30 minutos"));
+    }
+
+    @Test
+    void testarBoard_semCredencial_deveResponder401SemConsultarOClient() throws Exception {
+        mockMvc.perform(post("/api/admin/boards/testar")
+                        .contentType("application/json")
+                        .content("""
+                                { "ats": "GREENHOUSE", "empresa": "acme" }
+                                """))
+                .andExpect(status().isUnauthorized());
+
+        verify(greenhouseApiClient, never()).buscarBoard(any());
+        verify(leverApiClient, never()).buscarBoard(any());
+    }
+
+    @Test
+    void testarBoard_comCredencial_deveDevolverTotaisEExemplosSemRede() throws Exception {
+        GreenhouseJobDto aprovada = new GreenhouseJobDto(
+                1L,
+                "Junior Software Engineer",
+                "Acme",
+                new GreenhouseLocationDto("Remote"),
+                "https://boards.greenhouse.io/acme/jobs/1",
+                "Java e Spring Boot",
+                null,
+                null
+        );
+        GreenhouseJobDto reprovada = new GreenhouseJobDto(
+                2L,
+                "Senior Software Engineer",
+                "Acme",
+                new GreenhouseLocationDto("Remote"),
+                "https://boards.greenhouse.io/acme/jobs/2",
+                "Java",
+                null,
+                null
+        );
+        when(greenhouseApiClient.buscarBoard("acme"))
+                .thenReturn(ConsultaBoard.existente(List.of(aprovada, reprovada)));
+
+        mockMvc.perform(post("/api/admin/boards/testar")
+                        .header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo"))
+                        .contentType("application/json")
+                        .content("""
+                                { "ats": "GREENHOUSE", "empresa": "acme" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ats").value("GREENHOUSE"))
+                .andExpect(jsonPath("$.empresa").value("acme"))
+                .andExpect(jsonPath("$.existe").value(true))
+                .andExpect(jsonPath("$.totalVagas").value(2))
+                .andExpect(jsonPath("$.totalAprovadas").value(1))
+                .andExpect(jsonPath("$.exemplosAprovados[0].titulo").value("Junior Software Engineer"))
+                .andExpect(jsonPath("$.exemplosReprovados[0].motivo").value("NIVEL"));
     }
 
     private static String configuracaoJson(int intervalo, int dias, String termoGupy) {

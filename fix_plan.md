@@ -137,7 +137,11 @@ Faça sempre o primeiro `[ ]`, um por iteração.
   min, dias para expirar ≥ 1, listas sem itens vazios; erro 400 com mensagem clara).
 - Testes: padrão vindo do yml, alteração refletida na coleta seguinte, validação, chave-mestra.
 
-## 7. [ ] Testar board do Greenhouse/Lever
+## 7. [x] Testar board do Greenhouse/Lever
+
+> Feito: `POST /api/admin/boards/testar` consulta Greenhouse/Lever pelos clients existentes,
+> distingue board inexistente de vazio, aplica os classificadores da coleta e devolve totais e
+> até 10 exemplos aprovados/reprovados com motivo; testes usam clients falsos, sem rede.
 
 - `POST /api/admin/boards/testar` com `{ "ats": "GREENHOUSE|LEVER", "empresa": "..." }`: diz se o
   board existe, quantas vagas tem e quantas passariam pelos filtros (estágio/júnior, tech, Java,
