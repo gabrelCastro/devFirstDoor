@@ -391,7 +391,11 @@ export default function App() {
                     <span className="entrada-fonte">{vaga.fonte}</span>
                   </div>
 
-                  <h2 className="entrada-titulo">{vaga.titulo}</h2>
+                  <h2 className="entrada-titulo">
+                    <a className="entrada-titulo-link" href={vaga.link} target="_blank" rel="noreferrer">
+                      {vaga.titulo}
+                    </a>
+                  </h2>
 
                   <p className="entrada-detalhe">
                     <span className="entrada-empresa">{vaga.empresa}</span>
@@ -408,10 +412,11 @@ export default function App() {
                       <IconeCalendario tamanho={12} />
                       {formatarData(vaga.dataPublicacao)}
                     </time>
-                    <a className="entrada-link" href={vaga.link} target="_blank" rel="noreferrer">
+                    {/* O bloco inteiro já é o link (pelo título); isto é só a indicação visual. */}
+                    <span className="entrada-link" aria-hidden="true">
                       ver vaga
                       <IconeSetaExterna tamanho={12} />
-                    </a>
+                    </span>
                   </div>
                 </div>
               </li>

@@ -397,6 +397,7 @@
 }
 
 .entrada {
+  position: relative;
   display: flex;
   gap: 14px;
   padding: 22px 0;
@@ -512,8 +513,31 @@
   transition: color 150ms ease;
 }
 
-.entrada:hover .entrada-titulo {
+.entrada:hover .entrada-titulo,
+.entrada:focus-within .entrada-titulo {
   color: var(--acento);
+}
+
+/* O link do título cobre o bloco inteiro, para a vaga abrir clicando em qualquer ponto dela. */
+.entrada-titulo-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.entrada-titulo-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.entrada-titulo-link:focus-visible {
+  outline: none;
+}
+
+.entrada-titulo-link:focus-visible::after {
+  outline: 2px solid var(--acento);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .entrada-detalhe {
@@ -571,7 +595,7 @@
   text-underline-offset: 3px;
 }
 
-.entrada-link:hover {
+.entrada:hover .entrada-link {
   text-decoration-style: solid;
 }
 
