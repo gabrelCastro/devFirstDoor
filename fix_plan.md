@@ -19,7 +19,13 @@ Hoje a coleta só roda uma vez, quando o backend sobe (`runner/ColetaInicialRunn
   houver uma rodando, a nova é ignorada com log.
 - Testes: a trava de concorrência (sem Spring, chamando o serviço direto com crawlers falsos).
 
-## 2. [ ] Filtros e paginação na API (tirar o limite de 50 do frontend)
+## 2. [x] Filtros e paginação na API (tirar o limite de 50 do frontend)
+
+Feito: `Vaga` persiste `remoto`, `internacional` e `textoBusca` (normalizado) via `ClassificacaoVaga`
+(lógica movida de `VagaResponse`); `AtualizacaoVagasAntigasRunner` preenche vagas antigas no startup;
+`VagaFiltro` (Specification) + `ConsultaVagasService` atendem `GET /api/vagas?secao&escopo&q` e
+`GET /api/vagas/contagens` (total, fontes, contagem por seção/abrangência); frontend usa a API com
+"carregar mais" e debounce de 300ms; testes em `VagaControllerTest` (MockMvc + H2) e `ClassificacaoVagaTest`.
 
 O frontend busca `/api/vagas?size=50` e filtra no navegador, então com mais de 50 vagas as abas e
 contagens ficam erradas.

@@ -272,6 +272,34 @@
   color: var(--alerta);
 }
 
+.carregar-mais {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.botao-carregar-mais {
+  padding: 8px 18px;
+  border: 1px dashed var(--regua-forte);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--tinta);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.botao-carregar-mais:hover:not(:disabled) {
+  border-color: var(--acento);
+}
+
+.botao-carregar-mais:disabled {
+  color: var(--tinta-fraca);
+  cursor: progress;
+}
+
 .contagem-resultados {
   font-family: var(--mono);
   font-size: 11px;

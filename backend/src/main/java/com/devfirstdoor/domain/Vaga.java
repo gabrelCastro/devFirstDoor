@@ -47,6 +47,15 @@ public class Vaga {
     @Column(nullable = false, unique = true, length = 64)
     private String hashDeduplicacao;
 
+    // Colunas derivadas (ver ClassificacaoVaga). Anuláveis para o "ddl-auto: update"
+    // conseguir adicioná-las em bancos com vagas antigas, preenchidas depois no startup.
+    private Boolean remoto;
+
+    private Boolean internacional;
+
+    @Column(length = 2048)
+    private String textoBusca;
+
     protected Vaga() {
     }
 
@@ -60,6 +69,13 @@ public class Vaga {
         this.fonte = fonte;
         this.dataPublicacao = dataPublicacao;
         this.dataColeta = dataColeta;
+        atualizarCamposDerivados();
+    }
+
+    public void atualizarCamposDerivados() {
+        this.remoto = ClassificacaoVaga.isRemoto(local);
+        this.internacional = ClassificacaoVaga.isInternacional(fonte, local);
+        this.textoBusca = ClassificacaoVaga.textoDeBusca(titulo, empresa, local);
     }
 
     public Long getId() {
@@ -100,6 +116,18 @@ public class Vaga {
 
     public String getHashDeduplicacao() {
         return hashDeduplicacao;
+    }
+
+    public boolean isRemoto() {
+        return Boolean.TRUE.equals(remoto);
+    }
+
+    public boolean isInternacional() {
+        return Boolean.TRUE.equals(internacional);
+    }
+
+    public String getTextoBusca() {
+        return textoBusca;
     }
 
     public void setHashDeduplicacao(String hashDeduplicacao) {

@@ -36,7 +36,26 @@ function useTema() {
   return [tema, () => setTema((atual) => (atual === 'claro' ? 'escuro' : 'claro'))]
 }
 
-const CHARSET_DECODIFICACAO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#/'
+const TAMANHO_PAGINA = 30
+const ATRASO_BUSCA_MS = 300
+
+function urlDaApi(caminho, parametros) {
+  const busca = new URLSearchParams()
+  for (const [chave, valor] of Object.entries(parametros)) {
+    if (valor !== '' && valor != null) busca.set(chave, valor)
+  }
+  return `${caminho}?${busca}`
+}
+
+async function buscarJson(url) {
+  const resposta = await fetch(url)
+  if (!resposta.ok) {
+    throw new Error(`API respondeu com status ${resposta.status}`)
+  }
+  return resposta.json()
+}
+
+const CHARSET_DECODIFICACAO ='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#/'
 
 function useDecodificarTitulo(textoFinal, atrasoMs = 1550, duracaoMs = 900) {
   const ref = useRef(null)
@@ -104,24 +123,43 @@ export default function App() {
   const [tema, alternarTema] = useTema()
   const tituloRef = useDecodificarTitulo('Dev First Door')
   const [vagas, setVagas] = useState([])
+  const [pagina, setPagina] = useState(null)
+  const [contagens, setContagens] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const [atualizando, setAtualizando] = useState(false)
+  const [carregandoMais, setCarregandoMais] = useState(false)
   const [erro, setErro] = useState(null)
   const [busca, setBusca] = useState('')
+  const [buscaAplicada, setBuscaAplicada] = useState('')
   const [secaoFiltro, setSecaoFiltro] = useState('TODAS')
   const [escopoFiltro, setEscopoFiltro] = useState('TODAS')
+
+  // Só consulta a API quando o usuário para de digitar.
+  useEffect(() => {
+    const temporizador = setTimeout(() => setBuscaAplicada(busca.trim()), ATRASO_BUSCA_MS)
+    return () => clearTimeout(temporizador)
+  }, [busca])
+
+  const filtros = useMemo(
+    () => ({ secao: secaoFiltro, escopo: escopoFiltro, q: buscaAplicada }),
+    [secaoFiltro, escopoFiltro, buscaAplicada],
+  )
 
   useEffect(() => {
     let cancelado = false
 
     async function carregarVagas() {
+      setAtualizando(true)
       try {
-        const resposta = await fetch('/api/vagas?size=50')
-        if (!resposta.ok) {
-          throw new Error(`API respondeu com status ${resposta.status}`)
-        }
-        const pagina = await resposta.json()
+        const [primeiraPagina, novasContagens] = await Promise.all([
+          buscarJson(urlDaApi('/api/vagas', { ...filtros, page: 0, size: TAMANHO_PAGINA })),
+          buscarJson(urlDaApi('/api/vagas/contagens', filtros)),
+        ])
         if (!cancelado) {
-          setVagas(pagina.content ?? [])
+          setVagas(primeiraPagina.content ?? [])
+          setPagina(primeiraPagina)
+          setContagens(novasContagens)
+          setErro(null)
         }
       } catch (e) {
         if (!cancelado) {
@@ -130,6 +168,7 @@ export default function App() {
       } finally {
         if (!cancelado) {
           setCarregando(false)
+          setAtualizando(false)
         }
       }
     }
@@ -138,49 +177,36 @@ export default function App() {
     return () => {
       cancelado = true
     }
-  }, [])
+  }, [filtros])
 
-  const contagemPorSecao = useMemo(() => {
-    return vagas.reduce(
-      (acc, vaga) => {
-        if (vaga.remoto) acc.REMOTO += 1
-        if (vaga.nivel === 'ESTAGIO') acc.ESTAGIO += 1
-        return acc
-      },
-      { REMOTO: 0, ESTAGIO: 0 },
-    )
-  }, [vagas])
+  const filtrosRef = useRef(filtros)
+  useEffect(() => {
+    filtrosRef.current = filtros
+  }, [filtros])
 
-  const contagemPorEscopo = useMemo(() => {
-    return vagas.reduce(
-      (acc, vaga) => {
-        if (vaga.internacional) acc.GRINGA += 1
-        else acc.NACIONAL += 1
-        return acc
-      },
-      { NACIONAL: 0, GRINGA: 0 },
-    )
-  }, [vagas])
+  async function carregarMais() {
+    if (!pagina || carregandoMais) return
+    const filtrosDaPagina = filtros
+    setCarregandoMais(true)
+    try {
+      const proxima = await buscarJson(
+        urlDaApi('/api/vagas', { ...filtrosDaPagina, page: pagina.number + 1, size: TAMANHO_PAGINA }),
+      )
+      // Descarta a resposta se os filtros mudaram enquanto ela chegava.
+      if (filtrosRef.current !== filtrosDaPagina) return
+      setVagas((atuais) => [...atuais, ...(proxima.content ?? [])])
+      setPagina(proxima)
+    } catch (e) {
+      setErro(e.message)
+    } finally {
+      setCarregandoMais(false)
+    }
+  }
 
-  const vagasFiltradas = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    return vagas.filter((vaga) => {
-      if (secaoFiltro === 'REMOTO' && !vaga.remoto) return false
-      if (secaoFiltro === 'ESTAGIO' && vaga.nivel !== 'ESTAGIO') return false
-      if (escopoFiltro === 'NACIONAL' && vaga.internacional) return false
-      if (escopoFiltro === 'GRINGA' && !vaga.internacional) return false
-      if (termo) {
-        const alvo = `${vaga.titulo} ${vaga.empresa} ${vaga.local ?? ''}`.toLowerCase()
-        if (!alvo.includes(termo)) return false
-      }
-      return true
-    })
-  }, [vagas, busca, secaoFiltro, escopoFiltro])
-
-  const fontesUnicas = useMemo(
-    () => Array.from(new Set(vagas.map((v) => v.fonte))).sort(),
-    [vagas],
-  )
+  const totalGeral = contagens?.total ?? 0
+  const totalFiltrado = pagina?.totalElements ?? 0
+  const fontes = contagens?.fontes ?? []
+  const haMais = pagina != null && !pagina.last
 
   const filtrosAtivos = busca.trim() !== '' || secaoFiltro !== 'TODAS' || escopoFiltro !== 'TODAS'
 
@@ -195,7 +221,7 @@ export default function App() {
     ? 'sincronizando fontes...'
     : erro
       ? 'conexão instável com o servidor'
-      : `${fontesUnicas.length} ${fontesUnicas.length === 1 ? 'fonte conectada' : 'fontes conectadas'} · ${vagas.length} ${vagas.length === 1 ? 'vaga no radar' : 'vagas no radar'}`
+      : `${fontes.length} ${fontes.length === 1 ? 'fonte conectada' : 'fontes conectadas'} · ${totalGeral} ${totalGeral === 1 ? 'vaga no radar' : 'vagas no radar'}`
 
   return (
     <div className="pagina">
@@ -226,7 +252,7 @@ export default function App() {
       </header>
 
       <main>
-        {!carregando && !erro && vagas.length > 0 && (
+        {!carregando && !erro && totalGeral > 0 && (
           <div className="console">
             <label className="console-busca">
               <span className="sr-only">Buscar vagas</span>
@@ -247,21 +273,21 @@ export default function App() {
                 className={`aba ${secaoFiltro === 'TODAS' ? 'aba-ativa' : ''}`}
                 onClick={() => setSecaoFiltro('TODAS')}
               >
-                todas <span className="aba-contagem">{vagas.length}</span>
+                todas <span className="aba-contagem">{contagens.secao.TODAS}</span>
               </button>
               <button
                 type="button"
                 className={`aba ${secaoFiltro === 'REMOTO' ? 'aba-ativa' : ''}`}
                 onClick={() => setSecaoFiltro('REMOTO')}
               >
-                remoto <span className="aba-contagem">{contagemPorSecao.REMOTO}</span>
+                remoto <span className="aba-contagem">{contagens.secao.REMOTO}</span>
               </button>
               <button
                 type="button"
                 className={`aba ${secaoFiltro === 'ESTAGIO' ? 'aba-ativa' : ''}`}
                 onClick={() => setSecaoFiltro('ESTAGIO')}
               >
-                estágio <span className="aba-contagem">{contagemPorSecao.ESTAGIO}</span>
+                estágio <span className="aba-contagem">{contagens.secao.ESTAGIO}</span>
               </button>
             </div>
 
@@ -278,14 +304,14 @@ export default function App() {
                 className={`aba ${escopoFiltro === 'NACIONAL' ? 'aba-ativa' : ''}`}
                 onClick={() => setEscopoFiltro('NACIONAL')}
               >
-                nacional <span className="aba-contagem">{contagemPorEscopo.NACIONAL}</span>
+                nacional <span className="aba-contagem">{contagens.escopo.NACIONAL}</span>
               </button>
               <button
                 type="button"
                 className={`aba ${escopoFiltro === 'GRINGA' ? 'aba-ativa' : ''}`}
                 onClick={() => setEscopoFiltro('GRINGA')}
               >
-                gringa <span className="aba-contagem">{contagemPorEscopo.GRINGA}</span>
+                gringa <span className="aba-contagem">{contagens.escopo.GRINGA}</span>
               </button>
             </div>
 
@@ -298,9 +324,9 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && vagas.length > 0 && filtrosAtivos && (
+        {!carregando && !erro && totalGeral > 0 && filtrosAtivos && (
           <p className="contagem-resultados" aria-live="polite">
-            {vagasFiltradas.length} de {vagas.length} entradas
+            {totalFiltrado} de {totalGeral} entradas
           </p>
         )}
 
@@ -320,7 +346,7 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && vagas.length === 0 && (
+        {!carregando && !erro && totalGeral === 0 && (
           <div className="nota">
             <IconeCaixaVazia tamanho={28} />
             <p className="nota-titulo">nenhuma vaga coletada ainda</p>
@@ -328,7 +354,7 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && vagas.length > 0 && vagasFiltradas.length === 0 && (
+        {!carregando && !erro && totalGeral > 0 && vagas.length === 0 && (
           <div className="nota">
             <IconeBusca tamanho={28} />
             <p className="nota-titulo">nenhuma entrada encontrada</p>
@@ -336,9 +362,9 @@ export default function App() {
           </div>
         )}
 
-        {!carregando && !erro && vagasFiltradas.length > 0 && (
-          <ol className="manifesto">
-            {vagasFiltradas.map((vaga, indice) => (
+        {!carregando && !erro && vagas.length > 0 && (
+          <ol className="manifesto" aria-busy={atualizando}>
+            {vagas.map((vaga, indice) => (
               <li key={vaga.id} className="entrada" style={{ '--atraso': `${Math.min(indice, 10) * 35}ms` }}>
                 <span className="entrada-num">{formatarIndice(indice + 1)}</span>
                 <div className="entrada-corpo">
@@ -378,11 +404,24 @@ export default function App() {
             ))}
           </ol>
         )}
+
+        {!carregando && !erro && haMais && (
+          <div className="carregar-mais">
+            <button
+              type="button"
+              className="botao-carregar-mais"
+              onClick={carregarMais}
+              disabled={carregandoMais || atualizando}
+            >
+              {carregandoMais ? 'carregando...' : `carregar mais (${vagas.length} de ${totalFiltrado})`}
+            </button>
+          </div>
+        )}
       </main>
 
       <footer className="rodape">
         <p>
-          {fontesUnicas.length > 0 ? fontesUnicas.join(' · ') : 'gupy · remoteok · programathor'}
+          {fontes.length > 0 ? fontes.join(' · ') : 'gupy · remoteok · programathor'}
         </p>
         <p className="rodape-fim">— fim do manifesto —</p>
       </footer>
