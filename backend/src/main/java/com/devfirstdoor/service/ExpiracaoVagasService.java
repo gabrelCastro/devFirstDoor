@@ -1,6 +1,7 @@
 package com.devfirstdoor.service;
 
 import com.devfirstdoor.repository.VagaRepository;
+import com.devfirstdoor.domain.StatusVaga;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * Remove as vagas que saíram das fontes: as que não reaparecem numa coleta há mais de
+ * Expira as vagas que saíram das fontes: as que não reaparecem numa coleta há mais de
  * {@code app.crawler.dias-para-expirar} dias.
  *
  * É chamado por fonte e só depois de uma coleta bem-sucedida dela (ver ColetaService),
@@ -37,6 +38,7 @@ public class ExpiracaoVagasService {
     @Transactional
     public int removerExpiradas(String fonte, LocalDateTime agora) {
         int dias = configuracaoService != null ? configuracaoService.obter().diasParaExpirar() : diasParaExpirar;
-        return vagaRepository.deleteExpiradas(fonte, agora.minusDays(dias));
+        return vagaRepository.marcarExpiradas(fonte, agora.minusDays(dias),
+                StatusVaga.ATIVA, StatusVaga.EXPIRADA);
     }
 }

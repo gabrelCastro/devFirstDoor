@@ -3,6 +3,7 @@ package com.devfirstdoor.service;
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.OrigemColeta;
+import com.devfirstdoor.domain.StatusVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +47,7 @@ class ExpiracaoVagasServiceTest {
     }
 
     @Test
-    void removerExpiradas_deveRemoverSoAsVagasDaFonteNaoVistasHaMaisDeNDias() {
+    void removerExpiradas_deveMarcarComoExpiradasSoAsVagasDaFonteNaoVistasHaMaisDeNDias() {
         salvar("Estágio Java", "GUPY", agora.minusDays(8));
         salvar("Júnior Java", "GUPY", agora.minusDays(6));
         salvar("Java Intern", "REMOTEOK", agora.minusDays(30));
@@ -54,8 +55,10 @@ class ExpiracaoVagasServiceTest {
         int removidas = expiracaoVagasService.removerExpiradas("GUPY", agora);
 
         assertThat(removidas).isEqualTo(1);
-        assertThat(vagaRepository.findAll()).extracting(Vaga::getTitulo)
-                .containsExactlyInAnyOrder("Júnior Java", "Java Intern");
+        assertThat(vagaRepository.findAll()).hasSize(3);
+        assertThat(statusDe("Estágio Java")).isEqualTo(StatusVaga.EXPIRADA);
+        assertThat(statusDe("Júnior Java")).isEqualTo(StatusVaga.ATIVA);
+        assertThat(statusDe("Java Intern")).isEqualTo(StatusVaga.ATIVA);
     }
 
     @Test
@@ -66,13 +69,19 @@ class ExpiracaoVagasServiceTest {
 
         expiracaoVagasService.removerExpiradas("GUPY", agora);
 
-        assertThat(vagaRepository.findAll()).extracting(Vaga::getTitulo).containsExactly("Júnior Java");
+        assertThat(statusDe("Estágio Java")).isEqualTo(StatusVaga.EXPIRADA);
+        assertThat(statusDe("Júnior Java")).isEqualTo(StatusVaga.ATIVA);
     }
 
     @Test
     void coleta_deveAtualizarDataUltimaVisitaDaVagaQueReaparece_eRemoverAQueSumiu() {
         salvar("Estágio Java", "FALSO", agora.minusDays(10));
         salvar("Vaga Encerrada", "FALSO", agora.minusDays(10));
+        Vaga antiga = vagaRepository.findAll().stream()
+                .filter(v -> v.getTitulo().equals("Estágio Java"))
+                .findFirst().orElseThrow();
+        antiga.alterarStatus(StatusVaga.EXPIRADA);
+        vagaRepository.save(antiga);
 
         Map<String, Integer> resultado = coletar(() -> List.of(
                 vaga("Estágio Java", "FALSO", agora),
@@ -80,10 +89,13 @@ class ExpiracaoVagasServiceTest {
 
         assertThat(resultado).containsEntry("FALSO", 1);
         List<Vaga> vagas = vagaRepository.findAll();
-        assertThat(vagas).extracting(Vaga::getTitulo).containsExactlyInAnyOrder("Estágio Java", "Júnior Java");
+        assertThat(vagas).extracting(Vaga::getTitulo)
+                .containsExactlyInAnyOrder("Estágio Java", "Vaga Encerrada", "Júnior Java");
         Vaga reapareceu = vagas.stream().filter(v -> v.getTitulo().equals("Estágio Java")).findFirst().orElseThrow();
+        assertThat(reapareceu.getStatus()).isEqualTo(StatusVaga.ATIVA);
         assertThat(reapareceu.getDataColeta()).isCloseTo(agora.minusDays(10), within(1, MINUTES));
         assertThat(reapareceu.getDataUltimaVisita()).isCloseTo(LocalDateTime.now(), within(1, MINUTES));
+        assertThat(statusDe("Vaga Encerrada")).isEqualTo(StatusVaga.EXPIRADA);
     }
 
     @Test
@@ -123,5 +135,12 @@ class ExpiracaoVagasServiceTest {
     private Vaga vaga(String titulo, String fonte, LocalDateTime dataColeta) {
         return new Vaga(titulo, "Empresa", "Remoto", NivelVaga.ESTAGIO,
                 "https://example.com/" + fonte + "/" + titulo.hashCode(), fonte, null, dataColeta);
+    }
+
+    private StatusVaga statusDe(String titulo) {
+        return vagaRepository.findAll().stream()
+                .filter(v -> v.getTitulo().equals(titulo))
+                .map(Vaga::getStatus)
+                .findFirst().orElseThrow();
     }
 }

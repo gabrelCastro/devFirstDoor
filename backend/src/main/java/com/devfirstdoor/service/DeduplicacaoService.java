@@ -1,6 +1,7 @@
 package com.devfirstdoor.service;
 
 import com.devfirstdoor.domain.Vaga;
+import com.devfirstdoor.domain.StatusVaga;
 import com.devfirstdoor.repository.VagaRepository;
 import com.devfirstdoor.util.TextNormalizer;
 import org.springframework.stereotype.Service;
@@ -72,7 +73,9 @@ public class DeduplicacaoService {
         if (hashes.isEmpty()) {
             return 0;
         }
-        return vagaRepository.atualizarDataUltimaVisita(hashes, quando);
+        int visitadas = vagaRepository.atualizarDataUltimaVisita(hashes, quando);
+        vagaRepository.reativarExpiradas(hashes, StatusVaga.ATIVA, StatusVaga.EXPIRADA);
+        return visitadas;
     }
 
     private static String sha256(String valor) {

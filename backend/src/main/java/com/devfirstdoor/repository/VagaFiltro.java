@@ -1,6 +1,7 @@
 package com.devfirstdoor.repository;
 
 import com.devfirstdoor.domain.NivelVaga;
+import com.devfirstdoor.domain.StatusVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.util.TextNormalizer;
 import jakarta.persistence.criteria.Predicate;
@@ -40,6 +41,8 @@ public record VagaFiltro(Secao secao, Escopo escopo, String q) {
         String termo = TextNormalizer.normalizar(q);
         return (root, query, cb) -> {
             List<Predicate> condicoes = new ArrayList<>();
+            // Status nulo representa vagas anteriores à criação da coluna e equivale a ATIVA.
+            condicoes.add(cb.or(cb.equal(root.get("status"), StatusVaga.ATIVA), cb.isNull(root.get("status"))));
             switch (secao) {
                 case REMOTO -> condicoes.add(cb.isTrue(root.get("remoto")));
                 case ESTAGIO -> condicoes.add(cb.equal(root.get("nivel"), NivelVaga.ESTAGIO));

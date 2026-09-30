@@ -148,7 +148,11 @@ Faça sempre o primeiro `[ ]`, um por iteração.
   remoto), com até 10 exemplos das que passam e das que não passam (com o motivo).
 - Reaproveita os clients e classifiers existentes. Nos testes, client falso (sem rede).
 
-## 8. [ ] Moderação de vagas (backend)
+## 8. [x] Moderação de vagas (backend)
+
+> Feito: expiração por status com reativação na visita, API pública restrita às ativas,
+> correções manuais preservadas na reclassificação e endpoints admin paginados para listar,
+> filtrar, editar e reclassificar vagas, com testes de autenticação e comportamento.
 
 - Expiração vira **soft delete**: status `ATIVA|EXPIRADA|OCULTA` em vez de apagar. Vaga expirada
   que reaparece numa coleta volta a `ATIVA` (atenção: hoje a deduplicação descarta pelo hash, então

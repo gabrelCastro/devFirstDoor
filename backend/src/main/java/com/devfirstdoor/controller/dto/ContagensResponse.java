@@ -9,7 +9,7 @@ import java.util.Map;
 /**
  * Contagens das abas: as de seção respeitam a abrangência e a busca atuais, e
  * as de abrangência respeitam a seção e a busca atuais. "total" e "fontes" são
- * do banco inteiro, sem filtro.
+ * de todas as vagas ativas, sem filtro.
  */
 public record ContagensResponse(
         long total,

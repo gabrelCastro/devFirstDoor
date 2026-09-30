@@ -1,6 +1,7 @@
 package com.devfirstdoor.controller;
 
 import com.devfirstdoor.domain.NivelVaga;
+import com.devfirstdoor.domain.StatusVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import com.devfirstdoor.service.ConsultaVagasService;
@@ -95,6 +96,21 @@ class VagaControllerTest {
     void listar_deveRecusarSecaoInvalida() throws Exception {
         mockMvc.perform(get("/api/vagas").param("secao", "QUALQUER"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void apiPublica_deveIgnorarVagasExpiradasEOcultas() throws Exception {
+        var vagas = vagaRepository.findAll();
+        vagas.get(0).alterarStatus(StatusVaga.EXPIRADA);
+        vagas.get(1).alterarStatus(StatusVaga.OCULTA);
+        vagaRepository.saveAll(vagas);
+
+        mockMvc.perform(get("/api/vagas").param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(3)))
+                .andExpect(jsonPath("$.totalElements").value(3));
+        mockMvc.perform(get("/api/vagas/contagens"))
+                .andExpect(jsonPath("$.total").value(3));
     }
 
     @Test

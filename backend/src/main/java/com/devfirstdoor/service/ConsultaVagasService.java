@@ -2,6 +2,7 @@ package com.devfirstdoor.service;
 
 import com.devfirstdoor.controller.dto.ContagensResponse;
 import com.devfirstdoor.domain.Vaga;
+import com.devfirstdoor.domain.StatusVaga;
 import com.devfirstdoor.repository.VagaFiltro;
 import com.devfirstdoor.repository.VagaFiltro.Escopo;
 import com.devfirstdoor.repository.VagaFiltro.Secao;
@@ -43,7 +44,9 @@ public class ConsultaVagasService {
         for (Escopo escopo : Escopo.values()) {
             porEscopo.put(escopo, vagaRepository.count(filtro.comEscopo(escopo).toSpecification()));
         }
-        return new ContagensResponse(vagaRepository.count(), vagaRepository.findFontes(), porSecao, porEscopo);
+        long totalAtivas = vagaRepository.count(new VagaFiltro(Secao.TODAS, Escopo.TODAS, null).toSpecification());
+        return new ContagensResponse(totalAtivas, vagaRepository.findFontesAtivas(StatusVaga.ATIVA),
+                porSecao, porEscopo);
     }
 
     /**

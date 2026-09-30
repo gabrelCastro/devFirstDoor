@@ -33,6 +33,15 @@ public class Vaga {
     @Column(nullable = false)
     private NivelVaga nivel;
 
+    // Anuláveis para o ddl-auto conseguir adicioná-las em bancos já populados.
+    // Os getters tratam nulo como os padrões anteriores à área de moderação.
+    @Enumerated(EnumType.STRING)
+    private StatusVaga status;
+
+    private Boolean nivelManual;
+
+    private Boolean remotoManual;
+
     @Column(nullable = false, unique = true, length = 1024)
     private String link;
 
@@ -48,7 +57,7 @@ public class Vaga {
     private String hashDeduplicacao;
 
     // Anulável pelo mesmo motivo das colunas derivadas; vagas antigas sem ela contam
-    // a partir da dataColeta (ver VagaRepository#deleteExpiradas).
+    // a partir da dataColeta (ver VagaRepository#marcarExpiradas).
     private LocalDateTime dataUltimaVisita;
 
     // Colunas derivadas (ver ClassificacaoVaga). Anuláveis para o "ddl-auto: update"
@@ -74,13 +83,32 @@ public class Vaga {
         this.dataPublicacao = dataPublicacao;
         this.dataColeta = dataColeta;
         this.dataUltimaVisita = dataColeta;
+        this.status = StatusVaga.ATIVA;
+        this.nivelManual = false;
+        this.remotoManual = false;
         atualizarCamposDerivados();
     }
 
     public void atualizarCamposDerivados() {
-        this.remoto = ClassificacaoVaga.isRemoto(local);
+        if (!isRemotoManual()) {
+            this.remoto = ClassificacaoVaga.isRemoto(local);
+        }
         this.internacional = ClassificacaoVaga.isInternacional(fonte, local);
         this.textoBusca = ClassificacaoVaga.textoDeBusca(titulo, empresa, local);
+    }
+
+    public void alterarStatus(StatusVaga status) {
+        this.status = Objects.requireNonNull(status);
+    }
+
+    public void corrigirNivel(NivelVaga nivel) {
+        this.nivel = Objects.requireNonNull(nivel);
+        this.nivelManual = true;
+    }
+
+    public void corrigirRemoto(boolean remoto) {
+        this.remoto = remoto;
+        this.remotoManual = true;
     }
 
     public Long getId() {
@@ -101,6 +129,18 @@ public class Vaga {
 
     public NivelVaga getNivel() {
         return nivel;
+    }
+
+    public StatusVaga getStatus() {
+        return status != null ? status : StatusVaga.ATIVA;
+    }
+
+    public boolean isNivelManual() {
+        return Boolean.TRUE.equals(nivelManual);
+    }
+
+    public boolean isRemotoManual() {
+        return Boolean.TRUE.equals(remotoManual);
     }
 
     public String getLink() {

@@ -177,7 +177,7 @@ public class ColetaService {
                 vagasNovasPorFonte.put(fonte, novas.size());
                 resultado = ExecucaoFonte.sucesso(execucao, fonte, inicio,
                         crawler.contarEncontradas(coletadas), novas.size(), expiradas);
-                log.info("Crawler {} concluído: {} coletada(s), {} nova(s) persistida(s), {} expirada(s) removida(s)",
+                log.info("Crawler {} concluído: {} coletada(s), {} nova(s) persistida(s), {} marcada(s) como expirada(s)",
                         fonte, coletadas.size(), novas.size(), expiradas);
             } catch (Exception e) {
                 log.error("Crawler {} falhou e será ignorado nesta execução: {}", fonte, e.getMessage(), e);
