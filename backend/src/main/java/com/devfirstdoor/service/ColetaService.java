@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,12 +30,15 @@ public class ColetaService {
     private final List<VagaCrawler> crawlers;
     private final DeduplicacaoService deduplicacaoService;
     private final VagaRepository vagaRepository;
+    private final ExpiracaoVagasService expiracaoVagasService;
     private final AtomicBoolean emExecucao = new AtomicBoolean(false);
 
-    public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService, VagaRepository vagaRepository) {
+    public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
+                         VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService) {
         this.crawlers = crawlers;
         this.deduplicacaoService = deduplicacaoService;
         this.vagaRepository = vagaRepository;
+        this.expiracaoVagasService = expiracaoVagasService;
     }
 
     /**
@@ -59,16 +63,37 @@ public class ColetaService {
         for (VagaCrawler crawler : crawlers) {
             String fonte = crawler.getFonte();
             try {
+                LocalDateTime inicio = LocalDateTime.now();
                 List<Vaga> coletadas = crawler.coletar();
                 List<Vaga> novas = deduplicacaoService.filtrarNovas(coletadas);
                 vagaRepository.saveAll(novas);
+                deduplicacaoService.registrarVisita(hashes(coletadas), inicio);
+                int expiradas = removerExpiradas(fonte, coletadas, inicio);
                 vagasNovasPorFonte.put(fonte, novas.size());
-                log.info("Crawler {} concluído: {} coletada(s), {} nova(s) persistida(s)", fonte, coletadas.size(), novas.size());
+                log.info("Crawler {} concluído: {} coletada(s), {} nova(s) persistida(s), {} expirada(s) removida(s)",
+                        fonte, coletadas.size(), novas.size(), expiradas);
             } catch (Exception e) {
                 log.error("Crawler {} falhou e será ignorado nesta execução: {}", fonte, e.getMessage(), e);
                 vagasNovasPorFonte.put(fonte, -1);
             }
         }
         return vagasNovasPorFonte;
+    }
+
+    /**
+     * Os crawlers engolem falhas de rede/robots.txt e devolvem lista vazia, então uma
+     * coleta sem nenhuma vaga não prova que a fonte funcionou: nesse caso nada expira.
+     */
+    private int removerExpiradas(String fonte, List<Vaga> coletadas, LocalDateTime agora) {
+        if (coletadas.isEmpty()) {
+            return 0;
+        }
+        return expiracaoVagasService.removerExpiradas(fonte, agora);
+    }
+
+    private List<String> hashes(List<Vaga> vagas) {
+        return vagas.stream()
+                .map(v -> deduplicacaoService.calcularHash(v.getTitulo(), v.getEmpresa(), v.getFonte()))
+                .toList();
     }
 }

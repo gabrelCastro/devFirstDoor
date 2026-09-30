@@ -47,6 +47,10 @@ public class Vaga {
     @Column(nullable = false, unique = true, length = 64)
     private String hashDeduplicacao;
 
+    // Anulável pelo mesmo motivo das colunas derivadas; vagas antigas sem ela contam
+    // a partir da dataColeta (ver VagaRepository#deleteExpiradas).
+    private LocalDateTime dataUltimaVisita;
+
     // Colunas derivadas (ver ClassificacaoVaga). Anuláveis para o "ddl-auto: update"
     // conseguir adicioná-las em bancos com vagas antigas, preenchidas depois no startup.
     private Boolean remoto;
@@ -69,6 +73,7 @@ public class Vaga {
         this.fonte = fonte;
         this.dataPublicacao = dataPublicacao;
         this.dataColeta = dataColeta;
+        this.dataUltimaVisita = dataColeta;
         atualizarCamposDerivados();
     }
 
@@ -112,6 +117,10 @@ public class Vaga {
 
     public LocalDateTime getDataColeta() {
         return dataColeta;
+    }
+
+    public LocalDateTime getDataUltimaVisita() {
+        return dataUltimaVisita;
     }
 
     public String getHashDeduplicacao() {

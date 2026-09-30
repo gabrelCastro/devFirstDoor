@@ -40,7 +40,14 @@ contagens ficam erradas.
 - Frontend: usa os parâmetros da API, com botão "carregar mais" para a paginação e debounce na busca.
 - Testes: controller/repositório com H2 (`@DataJpaTest` ou `@SpringBootTest` + MockMvc).
 
-## 3. [ ] Remover vagas encerradas
+## 3. [x] Remover vagas encerradas
+
+Feito: `Vaga.dataUltimaVisita` (inicia com a `dataColeta`); `ColetaService` registra a visita das
+vagas que reaparecem (`DeduplicacaoService.registrarVisita`, bulk update pelo hash) e, se o crawler
+não falhou e devolveu ao menos uma vaga, chama `ExpiracaoVagasService.removerExpiradas(fonte)`, que
+apaga as da fonte não vistas há mais de `app.crawler.dias-para-expirar` (7) dias (sem visita conta a
+`dataColeta`); `LinkedinCrawler` registra a visita das já salvas que pula; testes em
+`ExpiracaoVagasServiceTest` (H2).
 
 Vagas que saíram das fontes continuam no banco para sempre.
 

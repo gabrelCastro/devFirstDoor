@@ -19,11 +19,12 @@ class ColetaServiceTest {
 
     private final VagaRepository vagaRepository = mock(VagaRepository.class);
     private final DeduplicacaoService deduplicacaoService = new DeduplicacaoService(vagaRepository);
+    private final ExpiracaoVagasService expiracaoVagasService = new ExpiracaoVagasService(vagaRepository, 7);
 
     @Test
     void executarTodos_deveIgnorarNovaColetaEnquantoOutraEstaRodando() throws Exception {
         CrawlerTravado crawler = new CrawlerTravado();
-        ColetaService coletaService = new ColetaService(List.of(crawler), deduplicacaoService, vagaRepository);
+        ColetaService coletaService = new ColetaService(List.of(crawler), deduplicacaoService, vagaRepository, expiracaoVagasService);
 
         CompletableFuture<Map<String, Integer>> primeira = CompletableFuture.supplyAsync(coletaService::executarTodos);
         assertThat(crawler.iniciou.await(5, TimeUnit.SECONDS)).isTrue();
@@ -51,7 +52,7 @@ class ColetaServiceTest {
                 throw new IllegalStateException("fonte fora do ar");
             }
         };
-        ColetaService coletaService = new ColetaService(List.of(quebrado), deduplicacaoService, vagaRepository);
+        ColetaService coletaService = new ColetaService(List.of(quebrado), deduplicacaoService, vagaRepository, expiracaoVagasService);
 
         assertThat(coletaService.executarTodos()).containsEntry("QUEBRADO", -1);
         assertThat(coletaService.executarTodos()).containsEntry("QUEBRADO", -1);

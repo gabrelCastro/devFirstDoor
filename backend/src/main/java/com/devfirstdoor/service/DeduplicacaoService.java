@@ -4,11 +4,14 @@ import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import com.devfirstdoor.util.TextNormalizer;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -58,6 +61,18 @@ public class DeduplicacaoService {
             novas.add(vaga);
         }
         return novas;
+    }
+
+    /**
+     * Marca como vistas as vagas já salvas que reapareceram numa coleta. A deduplicação
+     * as descarta, mas sem isso seriam tomadas por encerradas (ver ExpiracaoVagasService).
+     */
+    @Transactional
+    public int registrarVisita(Collection<String> hashes, LocalDateTime quando) {
+        if (hashes.isEmpty()) {
+            return 0;
+        }
+        return vagaRepository.atualizarDataUltimaVisita(hashes, quando);
     }
 
     private static String sha256(String valor) {

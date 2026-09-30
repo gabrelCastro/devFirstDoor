@@ -21,6 +21,8 @@ app:
     intervalo: 6h
     agendamento:
       enabled: true
+    # Vagas que não reaparecem numa coleta bem-sucedida da fonte há mais que isso são removidas.
+    dias-para-expirar: 7
     gupy:
       base-url: https://employability-portal.gupy.io/api/v1/jobs
       page-size: 100

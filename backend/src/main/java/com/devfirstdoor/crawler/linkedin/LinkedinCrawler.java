@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -89,15 +90,21 @@ public class LinkedinCrawler implements VagaCrawler {
         return vagas;
     }
 
-    /** Vagas de estágio/júnior em tecnologia que ainda não existem no banco. */
+    /**
+     * Vagas de estágio/júnior em tecnologia que ainda não existem no banco. As que já
+     * existem não são devolvidas (para não reler a descrição), então têm a visita
+     * registrada aqui, senão expirariam mesmo continuando na busca.
+     */
     private List<Candidata> buscarCandidatas() {
         List<Candidata> candidatas = new ArrayList<>();
         Set<String> hashesVistos = new HashSet<>();
+        Set<String> hashesJaSalvos = new HashSet<>();
+        LocalDateTime inicio = LocalDateTime.now();
 
         for (String termo : properties.getTermosBusca()) {
             try {
                 for (LinkedinJobDto job : client.buscarTodasAsPaginas(termo)) {
-                    avaliar(job, hashesVistos).ifPresent(candidatas::add);
+                    avaliar(job, hashesVistos, hashesJaSalvos).ifPresent(candidatas::add);
                 }
             } catch (LinkedinBloqueadoException e) {
                 log.warn("{}; termos restantes ficam para a próxima execução", e.getMessage());
@@ -106,12 +113,17 @@ public class LinkedinCrawler implements VagaCrawler {
                 log.error("Falha ao coletar o termo '{}' no LinkedIn: {}", termo, e.getMessage(), e);
             }
         }
+        deduplicacaoService.registrarVisita(hashesJaSalvos, inicio);
         return candidatas;
     }
 
-    private Optional<Candidata> avaliar(LinkedinJobDto job, Set<String> hashesVistos) {
+    private Optional<Candidata> avaliar(LinkedinJobDto job, Set<String> hashesVistos, Set<String> hashesJaSalvos) {
         String hash = deduplicacaoService.calcularHash(job.titulo(), job.empresa(), LinkedinJobMapper.FONTE);
-        if (!hashesVistos.add(hash) || hashesSemJava.contains(hash) || deduplicacaoService.isDuplicada(hash)) {
+        if (!hashesVistos.add(hash) || hashesSemJava.contains(hash)) {
+            return Optional.empty();
+        }
+        if (deduplicacaoService.isDuplicada(hash)) {
+            hashesJaSalvos.add(hash);
             return Optional.empty();
         }
         Optional<NivelVaga> nivel = classifier.classificarNivel(job);
