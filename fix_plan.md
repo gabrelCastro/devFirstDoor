@@ -93,7 +93,11 @@ APIs públicas de vagas, feitas para consumo externo:
   conteúdo da vaga), só remoto (a partir do local / campo de modalidade de cada API).
 - Testes com JSON de fixture escrito à mão no formato documentado de cada API.
 
-## 6. [ ] README
+## 6. [x] README
+
+Feito: `README.md` na raiz com o que o projeto faz, como subir (`make up`, `.env`), cada fonte e como
+coleta, filtros (nível, tecnologia, Java, remoto), deduplicação e expiração, `LINKEDIN_ENABLED` e o
+aviso sobre o robots.txt, endpoints da API, como rodar os testes e as configurações principais.
 
 `README.md` na raiz: o que o projeto faz; como subir (`make up`, `.env`); fontes e como cada uma
 coleta; filtros (estágio/júnior, Java, remoto); `LINKEDIN_ENABLED` e o aviso de que ele ignora o
