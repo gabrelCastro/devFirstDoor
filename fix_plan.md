@@ -99,7 +99,13 @@ Faça sempre o primeiro `[ ]`, um por iteração.
   com log (em memória neste item; o item 6 persiste). O estado aparece em `GET /api/admin/crawlers`.
 - Testes: 202/409/404, execução de uma fonte só, pausa respeitada pelo runner agendado.
 
-## 5. [ ] Frontend admin: login, painel dos crawlers e histórico
+## 5. [x] Frontend admin: login, painel dos crawlers e histórico
+
+> Feito: `Raiz.jsx` escolhe `/admin` pelo pathname e carrega `src/admin/` sob demanda (lazy);
+> `admin/api.js` (credencial Basic em `sessionStorage`, 401 → login), `Login`, `Painel` (cards por
+> fonte com saúde, progresso, última execução, próxima coleta, coletar todas/por fonte, pausar/retomar,
+> polling 3s/30s) e `Historico` (tabela paginada com detalhe por fonte); `useTema` extraído para
+> `tema.js`; estilos em `admin/Admin.css` com as variáveis de tema. Lint e build passando.
 
 - `/admin` com tela de login (valida em `GET /api/admin/me`) e botão de sair.
 - Painel: um card por fonte com saúde (cor), ligada/desligada, rodando agora + progresso, última

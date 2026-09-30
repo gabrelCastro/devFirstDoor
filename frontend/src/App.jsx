@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import { useTema } from './tema'
 import { NIVEL_LABEL, ehRecente, formatarData, formatarIndice } from './utils'
 import {
   IconeAlerta,
@@ -12,29 +13,6 @@ import {
   IconeSetaExterna,
   IconeSol,
 } from './icons'
-
-function useTema() {
-  const [tema, setTema] = useState(() => {
-    try {
-      const salvo = localStorage.getItem('tema')
-      if (salvo === 'claro' || salvo === 'escuro') return salvo
-    } catch {
-      // ignora falha ao ler localStorage (modo privado, etc.)
-    }
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro'
-  })
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', tema)
-    try {
-      localStorage.setItem('tema', tema)
-    } catch {
-      // ignora falha ao gravar no localStorage
-    }
-  }, [tema])
-
-  return [tema, () => setTema((atual) => (atual === 'claro' ? 'escuro' : 'claro'))]
-}
 
 const TAMANHO_PAGINA = 30
 const ATRASO_BUSCA_MS = 300
