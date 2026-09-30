@@ -7,10 +7,14 @@ import { ErroNaoAutenticado, apagarCredencial, chamarAdmin, lerCredencial } from
 import Login from './Login'
 import Painel from './Painel'
 import Historico from './Historico'
+import Configuracao from './Configuracao'
+import Vagas from './Vagas'
 
 const TELAS = [
   { id: 'painel', rotulo: 'painel' },
   { id: 'historico', rotulo: 'histórico' },
+  { id: 'configuracao', rotulo: 'configuração' },
+  { id: 'vagas', rotulo: 'vagas' },
 ]
 
 export default function Admin() {
@@ -116,6 +120,8 @@ export default function Admin() {
           <main>
             {tela === 'painel' && <Painel aoExpirar={expirar} />}
             {tela === 'historico' && <Historico aoExpirar={expirar} />}
+            {tela === 'configuracao' && <Configuracao aoExpirar={expirar} />}
+            {tela === 'vagas' && <Vagas aoExpirar={expirar} />}
           </main>
         </>
       )}

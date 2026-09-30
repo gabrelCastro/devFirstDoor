@@ -49,17 +49,27 @@ export function apagarCredencial() {
  * Chama um endpoint de /api/admin. Devolve o JSON da resposta; 401 vira
  * {@link ErroNaoAutenticado} e os demais erros trazem a `mensagem` do backend, quando houver.
  */
-export async function chamarAdmin(caminho, { method = 'GET', credencial = lerCredencial() } = {}) {
+export async function chamarAdmin(
+  caminho,
+  { method = 'GET', credencial = lerCredencial(), corpo } = {},
+) {
+  const headers = credencial ? { Authorization: credencial } : {}
+  if (corpo !== undefined) headers['Content-Type'] = 'application/json'
   const resposta = await fetch(`/api/admin${caminho}`, {
     method,
-    headers: credencial ? { Authorization: credencial } : {},
+    headers,
+    body: corpo === undefined ? undefined : JSON.stringify(corpo),
   })
   if (resposta.status === 401) {
     throw new ErroNaoAutenticado()
   }
-  const corpo = await resposta.json().catch(() => null)
+  const respostaCorpo = await resposta.json().catch(() => null)
   if (!resposta.ok) {
-    throw new Error(corpo?.mensagem ?? `API respondeu com status ${resposta.status}`)
+    throw new Error(
+      respostaCorpo?.mensagem ??
+        respostaCorpo?.detail ??
+        `API respondeu com status ${resposta.status}`,
+    )
   }
-  return corpo
+  return respostaCorpo
 }

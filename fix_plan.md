@@ -177,7 +177,11 @@ Faça sempre o primeiro `[ ]`, um por iteração.
 - Não mude a deduplicação automática neste item.
 - Testes do agrupamento e da resolução.
 
-## 10. [ ] Frontend admin: configuração e moderação
+## 10. [x] Frontend admin: configuração e moderação
+
+> Feito: navegação ganhou telas responsivas de configuração e vagas; configuração edita fontes,
+> termos, empresas e parâmetros com teste de boards; moderação filtra, corrige, oculta/reativa,
+> reclassifica e resolve duplicatas; cliente JSON e montagem dos filtros cobertos por testes Node.
 
 - Tela de configuração (itens 6 e 7): formulário por fonte, listas editáveis (termos, empresas),
   intervalo, dias para expirar; botão "testar" ao lado de cada empresa mostrando o resultado do
