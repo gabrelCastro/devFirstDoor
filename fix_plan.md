@@ -164,7 +164,11 @@ Faça sempre o primeiro `[ ]`, um por iteração.
   todas, respeitando correções manuais).
 - Testes: soft delete + reativação, API pública ignorando não ativas, correção manual preservada.
 
-## 9. [ ] Duplicatas entre fontes
+## 9. [x] Duplicatas entre fontes
+
+> Feito: `GET /api/admin/vagas/duplicatas` agrupa vagas ativas de fontes distintas por título +
+> empresa normalizados; `POST /api/admin/vagas/duplicatas/resolver` mantém a vaga escolhida e oculta
+> as demais do grupo, com validação do estado atual e testes de autenticação, agrupamento e resolução.
 
 - A deduplicação só compara vagas da mesma fonte, então a mesma vaga pode aparecer no LinkedIn e na
   Gupy. `GET /api/admin/vagas/duplicatas`: grupos de vagas ativas de fontes diferentes com título +

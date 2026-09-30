@@ -17,7 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -57,6 +59,11 @@ class AdminVagaControllerTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"OCULTA\"}"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/admin/vagas/reclassificar"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/admin/vagas/duplicatas"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/admin/vagas/duplicatas/resolver")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"vagaMantidaId\":1}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -116,6 +123,55 @@ class AdminVagaControllerTest {
                 .andExpect(jsonPath("$.content[0].nivelManual").value(true))
                 .andExpect(jsonPath("$.content[0].remoto").value(false))
                 .andExpect(jsonPath("$.content[0].remotoManual").value(true));
+    }
+
+    @Test
+    void duplicatas_deveAgruparAtivasDeFontesDiferentesPorTituloEEmpresaNormalizados() throws Exception {
+        Vaga gupy = salvar("  Desenvolvedor   JÁVA Júnior ", "Açaí Tech", "Remoto",
+                NivelVaga.JUNIOR, "GUPY", 5);
+        Vaga linkedin = salvar("desenvolvedor java júnior", "ACAI TECH", "Brasil",
+                NivelVaga.JUNIOR, "LINKEDIN", 4);
+        salvar("Desenvolvedor java junior ", "Outra Empresa", "Remoto",
+                NivelVaga.JUNIOR, "REMOTEOK", 6);
+        Vaga expiradaIgual = salvar("DESENVOLVEDOR JAVA JUNIOR", "Acai Tech", "Remoto",
+                NivelVaga.JUNIOR, "LEVER", 7);
+        expiradaIgual.alterarStatus(StatusVaga.EXPIRADA);
+        vagaRepository.save(expiradaIgual);
+
+        mockMvc.perform(get("/api/admin/vagas/duplicatas")
+                        .header(HttpHeaders.AUTHORIZATION, credencial()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].tituloNormalizado").value("desenvolvedor java junior"))
+                .andExpect(jsonPath("$[0].empresaNormalizada").value("acai tech"))
+                .andExpect(jsonPath("$[0].vagas[*].id", containsInAnyOrder(
+                        gupy.getId().intValue(), linkedin.getId().intValue())))
+                .andExpect(jsonPath("$[0].vagas[*].fonte", containsInAnyOrder("GUPY", "LINKEDIN")));
+    }
+
+    @Test
+    void resolverDuplicatas_deveManterAEscolhidaEOcultarAsDemaisDoGrupo() throws Exception {
+        Vaga mantida = salvar("Dev Java Junior", "Empresa X", "Remoto",
+                NivelVaga.JUNIOR, "GUPY", 5);
+        Vaga ocultada = salvar("DEV JAVA JÚNIOR", " empresa   x ", "Brasil",
+                NivelVaga.JUNIOR, "LINKEDIN", 4);
+
+        mockMvc.perform(post("/api/admin/vagas/duplicatas/resolver")
+                        .header(HttpHeaders.AUTHORIZATION, credencial())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vagaMantidaId\":" + mantida.getId() + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vagaMantidaId").value(mantida.getId()))
+                .andExpect(jsonPath("$.ocultadas").value(1));
+
+        assertThat(vagaRepository.findById(mantida.getId()).orElseThrow().getStatus())
+                .isEqualTo(StatusVaga.ATIVA);
+        assertThat(vagaRepository.findById(ocultada.getId()).orElseThrow().getStatus())
+                .isEqualTo(StatusVaga.OCULTA);
+        mockMvc.perform(get("/api/admin/vagas/duplicatas")
+                        .header(HttpHeaders.AUTHORIZATION, credencial()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     private Vaga salvar(String titulo, String empresa, String local, NivelVaga nivel, String fonte, int horas) {

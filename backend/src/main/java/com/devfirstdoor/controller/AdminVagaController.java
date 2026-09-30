@@ -1,9 +1,13 @@
 package com.devfirstdoor.controller;
 
 import com.devfirstdoor.controller.dto.AtualizacaoVagaAdminRequest;
+import com.devfirstdoor.controller.dto.GrupoDuplicatasResponse;
+import com.devfirstdoor.controller.dto.ResolucaoDuplicatasRequest;
+import com.devfirstdoor.controller.dto.ResolucaoDuplicatasResponse;
 import com.devfirstdoor.controller.dto.VagaAdminResponse;
 import com.devfirstdoor.domain.StatusVaga;
 import com.devfirstdoor.service.ModeracaoVagasService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -45,5 +50,16 @@ public class AdminVagaController {
     @PostMapping("/reclassificar")
     public Map<String, Integer> reclassificar() {
         return Map.of("reclassificadas", moderacaoVagasService.reclassificarTodas());
+    }
+
+    @GetMapping("/duplicatas")
+    public List<GrupoDuplicatasResponse> listarDuplicatas() {
+        return moderacaoVagasService.listarDuplicatas();
+    }
+
+    @PostMapping("/duplicatas/resolver")
+    public ResolucaoDuplicatasResponse resolverDuplicatas(
+            @Valid @RequestBody ResolucaoDuplicatasRequest request) {
+        return moderacaoVagasService.resolverDuplicatas(request.vagaMantidaId());
     }
 }
