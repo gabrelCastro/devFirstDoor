@@ -84,7 +84,13 @@ Faça sempre o primeiro `[ ]`, um por iteração.
   `SEM_DADOS` se nunca rodou; `DESLIGADA` se desligada.
 - Testes das regras de saúde (unitários) e do endpoint.
 
-## 4. [ ] Ações sobre as coletas
+## 4. [x] Ações sobre as coletas
+
+> Feito: `ColetaService.disparar` (todas ou uma fonte) pega a trava na thread da requisição e roda
+> numa thread própria; `POST /api/admin/coletas[/{fonte}]` responde 202/409/404 com `mensagem`;
+> `PausaAgendamento` em memória, respeitada pelo `ColetaAgendadaRunner` e exposta como
+> `agendamentoPausado` em `GET /api/admin/crawlers`; `POST /api/admin/agendamento/pausar|retomar`.
+> Testes em `ColetaServiceTest`, `AdminControllerTest` e `ColetaAgendadaRunnerTest`.
 
 - `POST /api/admin/coletas` (todas) e `POST /api/admin/coletas/{fonte}` (uma fonte) rodam em
   segundo plano e respondem `202`; se já houver coleta rodando, `409` com mensagem.

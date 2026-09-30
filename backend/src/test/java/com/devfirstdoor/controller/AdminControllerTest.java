@@ -8,6 +8,7 @@ import com.devfirstdoor.repository.ExecucaoFonteRepository;
 import com.devfirstdoor.service.AndamentoColeta;
 import com.devfirstdoor.service.ColetaService;
 import com.devfirstdoor.service.HistoricoColetaService;
+import com.devfirstdoor.service.PausaAgendamento;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,8 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -57,6 +58,9 @@ class AdminControllerTest {
     @Autowired
     private AndamentoColeta andamentoColeta;
 
+    @Autowired
+    private PausaAgendamento pausaAgendamento;
+
     @Test
     void apiPublica_deveContinuarAbertaSemCredencial() throws Exception {
         mockMvc.perform(get("/api/vagas")).andExpect(status().isOk());
@@ -90,16 +94,75 @@ class AdminControllerTest {
     void coletas_semCredencial_naoDeveRodarAColeta() throws Exception {
         mockMvc.perform(post("/api/admin/coletas"))
                 .andExpect(status().isUnauthorized());
-        verify(coletaService, never()).executarTodos(any());
+        mockMvc.perform(post("/api/admin/coletas/GUPY"))
+                .andExpect(status().isUnauthorized());
+        verify(coletaService, never()).disparar(any());
+        verify(coletaService, never()).disparar(any(), any());
     }
 
     @Test
-    void coletas_credencialCerta_deveRodarAColetaMesmoSemTokenCsrf() throws Exception {
-        when(coletaService.executarTodos(OrigemColeta.MANUAL)).thenReturn(Map.of("GUPY", 3));
+    void coletas_credencialCerta_deveDispararEmSegundoPlanoMesmoSemTokenCsrf() throws Exception {
+        when(coletaService.disparar(OrigemColeta.MANUAL)).thenReturn(ColetaService.Disparo.INICIADA);
 
         mockMvc.perform(post("/api/admin/coletas").header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.GUPY").value(3));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.mensagem").value("Coleta iniciada"));
+    }
+
+    @Test
+    void coletas_comColetaRodando_deveResponder409() throws Exception {
+        when(coletaService.disparar(OrigemColeta.MANUAL)).thenReturn(ColetaService.Disparo.JA_EM_ANDAMENTO);
+
+        mockMvc.perform(post("/api/admin/coletas").header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensagem").value("Já existe uma coleta em andamento"));
+    }
+
+    @Test
+    void coletaDeUmaFonte_deveResponderConformeODisparo() throws Exception {
+        when(coletaService.disparar(OrigemColeta.MANUAL, "GUPY")).thenReturn(ColetaService.Disparo.INICIADA);
+        when(coletaService.disparar(OrigemColeta.MANUAL, "LINKEDIN")).thenReturn(ColetaService.Disparo.FONTE_DESLIGADA);
+        when(coletaService.disparar(OrigemColeta.MANUAL, "NADA")).thenReturn(ColetaService.Disparo.FONTE_INEXISTENTE);
+        when(coletaService.disparar(OrigemColeta.MANUAL, "LEVER")).thenReturn(ColetaService.Disparo.JA_EM_ANDAMENTO);
+        String credencial = basic("admin", "segredo");
+
+        mockMvc.perform(post("/api/admin/coletas/GUPY").header(HttpHeaders.AUTHORIZATION, credencial))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/admin/coletas/LINKEDIN").header(HttpHeaders.AUTHORIZATION, credencial))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensagem").value("A fonte LINKEDIN está desligada"));
+        mockMvc.perform(post("/api/admin/coletas/NADA").header(HttpHeaders.AUTHORIZATION, credencial))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.mensagem").value("Fonte desconhecida: NADA"));
+        mockMvc.perform(post("/api/admin/coletas/LEVER").header(HttpHeaders.AUTHORIZATION, credencial))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void agendamento_semCredencial_deveResponder401() throws Exception {
+        mockMvc.perform(post("/api/admin/agendamento/pausar")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/admin/agendamento/retomar")).andExpect(status().isUnauthorized());
+        assertThat(pausaAgendamento.isPausado()).isFalse();
+    }
+
+    @Test
+    void agendamento_pausarERetomar_deveAparecerNoPainel() throws Exception {
+        String credencial = basic("admin", "segredo");
+        try {
+            mockMvc.perform(post("/api/admin/agendamento/pausar").header(HttpHeaders.AUTHORIZATION, credencial))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.pausado").value(true));
+            mockMvc.perform(get("/api/admin/crawlers").header(HttpHeaders.AUTHORIZATION, credencial))
+                    .andExpect(jsonPath("$.agendamentoPausado").value(true));
+
+            mockMvc.perform(post("/api/admin/agendamento/retomar").header(HttpHeaders.AUTHORIZATION, credencial))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.pausado").value(false));
+            mockMvc.perform(get("/api/admin/crawlers").header(HttpHeaders.AUTHORIZATION, credencial))
+                    .andExpect(jsonPath("$.agendamentoPausado").value(false));
+        } finally {
+            pausaAgendamento.retomar();
+        }
     }
 
     @Test
@@ -199,6 +262,7 @@ class AdminControllerTest {
         mockMvc.perform(post("/api/vagas/coletar"))
                 .andExpect(status().is4xxClientError());
         verify(coletaService, never()).executarTodos(any());
+        verify(coletaService, never()).disparar(any());
     }
 
     @Test

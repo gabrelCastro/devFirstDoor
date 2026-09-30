@@ -21,11 +21,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
@@ -212,9 +215,109 @@ class ColetaServiceTest {
         assertThat(andamento.atual()).isEmpty();
     }
 
+    @Test
+    void disparar_deveRodarEmSegundoPlanoESegurarATravaAteTerminar() {
+        AtomicInteger execucoes = new AtomicInteger();
+        VagaCrawler bom = crawlerFalso("BOM", () -> {
+            execucoes.incrementAndGet();
+            return List.of(vaga("Estágio Java"));
+        });
+        List<Runnable> agendadas = new ArrayList<>();
+        ColetaService coletaService = coletaService(agendadas::add, bom);
+
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL)).isEqualTo(ColetaService.Disparo.INICIADA);
+
+        // Ainda não rodou, mas a trava já está pega: nada mais começa até a tarefa terminar
+        assertThat(execucoes.get()).isZero();
+        assertThat(andamento.atual()).map(AndamentoColeta.Estado::origem).contains(OrigemColeta.MANUAL);
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL)).isEqualTo(ColetaService.Disparo.JA_EM_ANDAMENTO);
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL, "BOM")).isEqualTo(ColetaService.Disparo.JA_EM_ANDAMENTO);
+        assertThat(coletaService.executarTodos(OrigemColeta.AGENDADA)).isEmpty();
+
+        assertThat(agendadas).hasSize(1);
+        agendadas.get(0).run();
+
+        assertThat(execucoes.get()).isEqualTo(1);
+        assertThat(andamento.atual()).isEmpty();
+        assertThat(ultimaExecucaoGravada().getOrigem()).isEqualTo(OrigemColeta.MANUAL);
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL)).isEqualTo(ColetaService.Disparo.INICIADA);
+    }
+
+    @Test
+    void disparar_umaFonte_deveRodarSoEla() {
+        AtomicInteger outras = new AtomicInteger();
+        VagaCrawler outra = crawlerFalso("OUTRA", () -> {
+            outras.incrementAndGet();
+            return List.of();
+        });
+        VagaCrawler alvo = crawlerFalso("ALVO", () -> List.of(vaga("Júnior Java")));
+        ColetaService coletaService = coletaService(Runnable::run, outra, alvo);
+
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL, "alvo")).isEqualTo(ColetaService.Disparo.INICIADA);
+
+        assertThat(outras.get()).isZero();
+        assertThat(fontesGravadas()).extracting(ExecucaoFonte::getFonte).containsExactly("ALVO");
+        assertThat(ultimaExecucaoGravada().getStatus()).isEqualTo(StatusExecucao.SUCESSO);
+        assertThat(andamento.atual()).isEmpty();
+    }
+
+    @Test
+    void disparar_fonteInexistenteOuDesligada_naoDeveRodarNada() {
+        AtomicInteger execucoes = new AtomicInteger();
+        VagaCrawler desligado = new VagaCrawler() {
+            @Override
+            public String getFonte() {
+                return "DESLIGADO";
+            }
+
+            @Override
+            public List<Vaga> coletar() {
+                execucoes.incrementAndGet();
+                return List.of();
+            }
+
+            @Override
+            public boolean isLigada() {
+                return false;
+            }
+        };
+        List<Runnable> agendadas = new ArrayList<>();
+        ColetaService coletaService = coletaService(agendadas::add, desligado);
+
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL, "NAO_EXISTE"))
+                .isEqualTo(ColetaService.Disparo.FONTE_INEXISTENTE);
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL, "DESLIGADO"))
+                .isEqualTo(ColetaService.Disparo.FONTE_DESLIGADA);
+        // LinkedIn desligado nem vira bean, mas é uma fonte conhecida
+        assertThat(coletaService.disparar(OrigemColeta.MANUAL, "LINKEDIN"))
+                .isEqualTo(ColetaService.Disparo.FONTE_DESLIGADA);
+
+        assertThat(agendadas).isEmpty();
+        assertThat(execucoes.get()).isZero();
+        assertThat(andamento.atual()).isEmpty();
+    }
+
+    @Test
+    void disparar_semConseguirAgendar_deveLiberarATrava() {
+        ColetaService coletaService = coletaService(tarefa -> {
+            throw new RejectedExecutionException("sem threads");
+        }, crawlerFalso("BOM", List::of));
+
+        assertThatThrownBy(() -> coletaService.disparar(OrigemColeta.MANUAL))
+                .isInstanceOf(RejectedExecutionException.class);
+
+        assertThat(andamento.atual()).isEmpty();
+        assertThat(coletaService.executarTodos(OrigemColeta.MANUAL)).containsEntry("BOM", 0);
+    }
+
     private ColetaService coletaService(VagaCrawler... crawlers) {
         return new ColetaService(List.of(crawlers), deduplicacaoService, vagaRepository, expiracaoVagasService,
                 historicoColetaService, andamento);
+    }
+
+    private ColetaService coletaService(Executor segundoPlano, VagaCrawler... crawlers) {
+        return new ColetaService(List.of(crawlers), deduplicacaoService, vagaRepository, expiracaoVagasService,
+                historicoColetaService, andamento, segundoPlano);
     }
 
     private List<ExecucaoColeta> execucoesGravadas() {

@@ -9,10 +9,12 @@ import java.util.List;
 /**
  * Estado dos crawlers para o painel admin.
  *
- * @param coletaEmAndamento null quando nenhuma coleta está rodando
+ * @param coletaEmAndamento  null quando nenhuma coleta está rodando
+ * @param agendamentoPausado coleta agendada pausada pelo painel (a próxima coleta prevista é pulada)
  */
 public record PainelCrawlersResponse(
         ColetaEmAndamento coletaEmAndamento,
+        boolean agendamentoPausado,
         List<Crawler> crawlers
 ) {
 

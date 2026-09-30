@@ -8,6 +8,7 @@ import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -26,6 +29,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Só uma coleta roda por vez: a inicial, a agendada e a manual (POST /api/admin/coletas)
  * podem coincidir, e duas juntas dobrariam as requisições às fontes e poderiam salvar
  * a mesma vaga duas vezes (a deduplicação só enxerga o que já está no banco).
+ *
+ * As coletas do painel admin rodam em segundo plano ({@link #disparar}): a trava é pega
+ * ainda na thread da requisição, para o endpoint saber na hora se a coleta começou ou se
+ * já havia outra rodando.
  */
 @Service
 public class ColetaService {
@@ -38,17 +45,36 @@ public class ColetaService {
     private final ExpiracaoVagasService expiracaoVagasService;
     private final HistoricoColetaService historicoColetaService;
     private final AndamentoColeta andamento;
+    private final Executor segundoPlano;
     private final AtomicBoolean emExecucao = new AtomicBoolean(false);
 
+    /** Resultado de pedir uma coleta pelo painel. */
+    public enum Disparo {
+        INICIADA,
+        JA_EM_ANDAMENTO,
+        FONTE_INEXISTENTE,
+        FONTE_DESLIGADA
+    }
+
+    @Autowired
     public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                          VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
                          HistoricoColetaService historicoColetaService, AndamentoColeta andamento) {
+        this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
+                andamento, ColetaService::novaThread);
+    }
+
+    ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
+                  VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
+                  HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
+                  Executor segundoPlano) {
         this.crawlers = crawlers;
         this.deduplicacaoService = deduplicacaoService;
         this.vagaRepository = vagaRepository;
         this.expiracaoVagasService = expiracaoVagasService;
         this.historicoColetaService = historicoColetaService;
         this.andamento = andamento;
+        this.segundoPlano = segundoPlano;
     }
 
     /**
@@ -56,25 +82,88 @@ public class ColetaService {
      * (sem entrar no histórico) e devolve um mapa vazio.
      */
     public Map<String, Integer> executarTodos(OrigemColeta origem) {
-        if (!emExecucao.compareAndSet(false, true)) {
-            log.warn("Já existe uma coleta em andamento; esta ({}) será ignorada", origem);
+        if (!travar(origem)) {
             return Map.of();
         }
-        andamento.iniciar(origem);
         try {
-            return executarCrawlers(origem);
+            return executarCrawlers(origem, crawlers);
         } finally {
-            andamento.finalizar();
-            emExecucao.set(false);
+            liberar();
         }
     }
 
-    private Map<String, Integer> executarCrawlers(OrigemColeta origem) {
+    /** Dispara a coleta de todas as fontes em segundo plano. */
+    public Disparo disparar(OrigemColeta origem) {
+        return emSegundoPlano(origem, crawlers);
+    }
+
+    /**
+     * Dispara a coleta de uma fonte só, em segundo plano. Uma fonte conhecida sem crawler
+     * registrado (LinkedIn com LINKEDIN_ENABLED=false) conta como desligada, não inexistente.
+     */
+    public Disparo disparar(OrigemColeta origem, String fonte) {
+        Optional<VagaCrawler> crawler = crawlers.stream()
+                .filter(c -> c.getFonte().equalsIgnoreCase(fonte))
+                .findFirst();
+        if (crawler.isEmpty()) {
+            boolean conhecida = EstadoCrawlersService.FONTES_CONHECIDAS.stream()
+                    .anyMatch(f -> f.equalsIgnoreCase(fonte));
+            return conhecida ? Disparo.FONTE_DESLIGADA : Disparo.FONTE_INEXISTENTE;
+        }
+        if (!crawler.get().isLigada()) {
+            return Disparo.FONTE_DESLIGADA;
+        }
+        return emSegundoPlano(origem, List.of(crawler.get()));
+    }
+
+    private Disparo emSegundoPlano(OrigemColeta origem, List<VagaCrawler> alvo) {
+        if (!travar(origem)) {
+            return Disparo.JA_EM_ANDAMENTO;
+        }
+        try {
+            segundoPlano.execute(() -> {
+                try {
+                    executarCrawlers(origem, alvo);
+                } catch (Exception e) {
+                    log.error("Coleta em segundo plano ({}) falhou: {}", origem, e.getMessage(), e);
+                } finally {
+                    liberar();
+                }
+            });
+        } catch (RuntimeException e) {
+            // A tarefa nem começou: sem isto a trava ficaria presa para sempre.
+            liberar();
+            throw e;
+        }
+        return Disparo.INICIADA;
+    }
+
+    private boolean travar(OrigemColeta origem) {
+        if (!emExecucao.compareAndSet(false, true)) {
+            log.warn("Já existe uma coleta em andamento; esta ({}) será ignorada", origem);
+            return false;
+        }
+        andamento.iniciar(origem);
+        return true;
+    }
+
+    private void liberar() {
+        andamento.finalizar();
+        emExecucao.set(false);
+    }
+
+    private static void novaThread(Runnable tarefa) {
+        Thread thread = new Thread(tarefa, "coleta-admin");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private Map<String, Integer> executarCrawlers(OrigemColeta origem, List<VagaCrawler> alvo) {
         Map<String, Integer> vagasNovasPorFonte = new LinkedHashMap<>();
         ExecucaoColeta execucao = historicoColetaService.iniciar(origem);
         List<ExecucaoFonte> resultados = new ArrayList<>();
 
-        for (VagaCrawler crawler : crawlers) {
+        for (VagaCrawler crawler : alvo) {
             String fonte = crawler.getFonte();
             LocalDateTime inicio = LocalDateTime.now();
             ExecucaoFonte resultado;

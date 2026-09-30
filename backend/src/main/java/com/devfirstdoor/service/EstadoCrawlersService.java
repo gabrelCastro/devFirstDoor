@@ -50,14 +50,17 @@ public class EstadoCrawlersService {
     private final ExecucaoFonteRepository fonteRepository;
     private final AndamentoColeta andamento;
     private final ObjectProvider<ColetaAgendadaRunner> agendamento;
+    private final PausaAgendamento pausa;
 
     public EstadoCrawlersService(List<VagaCrawler> crawlers, ExecucaoFonteRepository fonteRepository,
-                                 AndamentoColeta andamento, ObjectProvider<ColetaAgendadaRunner> agendamento) {
+                                 AndamentoColeta andamento, ObjectProvider<ColetaAgendadaRunner> agendamento,
+                                 PausaAgendamento pausa) {
         this.crawlersPorFonte = crawlers.stream()
                 .collect(Collectors.toMap(VagaCrawler::getFonte, Function.identity()));
         this.fonteRepository = fonteRepository;
         this.andamento = andamento;
         this.agendamento = agendamento;
+        this.pausa = pausa;
     }
 
     @Transactional(readOnly = true)
@@ -72,7 +75,7 @@ public class EstadoCrawlersService {
         ColetaEmAndamento coleta = emAndamento
                 .map(e -> new ColetaEmAndamento(e.origem(), e.inicio(), e.fonteAtual(), e.progresso()))
                 .orElse(null);
-        return new PainelCrawlersResponse(coleta, crawlers);
+        return new PainelCrawlersResponse(coleta, pausa.isPausado(), crawlers);
     }
 
     /** As conhecidas, na ordem fixa, mais qualquer crawler novo que ainda não esteja na lista. */
