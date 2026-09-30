@@ -33,7 +33,7 @@ public class GreenhouseCrawlerProperties {
     );
 
     /** O Greenhouse não tem campo de modalidade: a vaga é remota se o local disser. */
-    private List<String> palavrasRemoto = List.of("remote", "remoto", "anywhere", "home office");
+    private List<String> palavrasRemoto = List.of("remote", "remoto", "anywhere", "home office", "teletrabalho");
 
     public String getBaseUrl() {
         return baseUrl;

@@ -30,10 +30,21 @@ app:
       max-paginas-por-termo: 5
     # Greenhouse e Lever não têm busca entre empresas: liste os identificadores dos
     # boards (boards.greenhouse.io/{empresa}, jobs.lever.co/{empresa}). Vazio = não coleta.
+    # Empresas com vagas Java no Brasil e que abrem vagas remotas (verificadas em 2026-09).
     greenhouse:
-      empresas: []
+      empresas:
+        - btgpactual
+        - c6bank
+        - xpinc
+        - quintoandar
+        - gympass      # Wellhub
+        - ebanx
+        - jusbrasil
+        - rdstation
     lever:
-      empresas: []
+      empresas:
+        - ciandt
+        - swile
     linkedin:
       # Busca pública (sem login). Ignora o robots.txt do LinkedIn; ligue só para uso pessoal.
       enabled: ${LINKEDIN_ENABLED:false}

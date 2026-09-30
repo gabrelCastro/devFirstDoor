@@ -120,8 +120,8 @@ banco é H2 em memória. A coleta no startup e a agendada ficam desligadas em
 | `app.crawler.gupy.page-size` | `100` | Vagas por página na API da Gupy |
 | `app.crawler.gupy.max-paginas-por-termo` | `5` | Limite de páginas por termo de busca |
 | `app.crawler.gupy.request-delay-ms` | `1000` | Pausa entre requisições à Gupy |
-| `app.crawler.greenhouse.empresas` | `[]` | Boards do Greenhouse (`boards.greenhouse.io/{empresa}`) |
-| `app.crawler.lever.empresas` | `[]` | Empresas do Lever (`jobs.lever.co/{empresa}`) |
+| `app.crawler.greenhouse.empresas` | 8 empresas no `application.yml` | Boards do Greenhouse (`boards.greenhouse.io/{empresa}`) |
+| `app.crawler.lever.empresas` | 2 empresas no `application.yml` | Empresas do Lever (`jobs.lever.co/{empresa}`) |
 | `app.crawler.linkedin.enabled` | `${LINKEDIN_ENABLED:false}` | Liga o crawler do LinkedIn |
 
 Cada fonte tem mais opções nas classes `*CrawlerProperties` (termos de busca, palavras de

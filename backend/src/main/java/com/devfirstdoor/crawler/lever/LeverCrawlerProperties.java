@@ -33,7 +33,7 @@ public class LeverCrawlerProperties {
     );
 
     /** Usadas no local quando a vaga não informa a modalidade ("workplaceType"). */
-    private List<String> palavrasRemoto = List.of("remote", "remoto", "anywhere", "home office");
+    private List<String> palavrasRemoto = List.of("remote", "remoto", "anywhere", "home office", "teletrabalho");
 
     public String getBaseUrl() {
         return baseUrl;
