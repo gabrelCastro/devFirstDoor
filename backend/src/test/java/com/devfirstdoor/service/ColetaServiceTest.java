@@ -1,19 +1,23 @@
 package com.devfirstdoor.service;
 
 import com.devfirstdoor.crawler.VagaCrawler;
+import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class ColetaServiceTest {
 
@@ -57,6 +61,36 @@ class ColetaServiceTest {
         assertThat(coletaService.executarTodos()).containsEntry("QUEBRADO", -1);
         assertThat(coletaService.executarTodos()).containsEntry("QUEBRADO", -1);
         assertThat(execucoes.get()).isEqualTo(2);
+    }
+
+    @Test
+    void executarTodos_crawlerComExcecao_naoDeveImpedirOsOutrosDeSalvar() {
+        Vaga vaga = new Vaga("Desenvolvedor Java Júnior", "Empresa", "Remoto", NivelVaga.JUNIOR,
+                "https://exemplo.com/vaga/1", "BOM", null, LocalDateTime.now());
+        VagaCrawler quebrado = crawlerFalso("QUEBRADO", () -> {
+            throw new IllegalStateException("HTML mudou");
+        });
+        VagaCrawler bom = crawlerFalso("BOM", () -> List.of(vaga));
+        ColetaService coletaService = new ColetaService(List.of(quebrado, bom), deduplicacaoService, vagaRepository, expiracaoVagasService);
+
+        Map<String, Integer> resultado = coletaService.executarTodos();
+
+        assertThat(resultado).containsEntry("QUEBRADO", -1).containsEntry("BOM", 1);
+        verify(vagaRepository).saveAll(List.of(vaga));
+    }
+
+    private static VagaCrawler crawlerFalso(String fonte, Supplier<List<Vaga>> coleta) {
+        return new VagaCrawler() {
+            @Override
+            public String getFonte() {
+                return fonte;
+            }
+
+            @Override
+            public List<Vaga> coletar() {
+                return coleta.get();
+            }
+        };
     }
 
     /**

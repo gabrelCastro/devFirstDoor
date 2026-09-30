@@ -58,7 +58,12 @@ Vagas que saíram das fontes continuam no banco para sempre.
   tudo dela.
 - Testes: serviço de expiração e a atualização de `dataUltimaVisita`.
 
-## 4. [ ] Testes dos crawlers com cliente falso
+## 4. [x] Testes dos crawlers com cliente falso
+
+Feito: `LinkedinCrawlerTest` e `GupyCrawlerTest` (clients e `RobotsTxtChecker` mockados com Mockito,
+`DeduplicacaoService` real sobre `VagaRepository` mockado) cobrem bloqueio na busca e nas descrições,
+cache de vagas sem Java, falha de leitura fora do cache e vaga já salva sem leitura (com visita
+registrada); `ColetaServiceTest` ganhou o caso de um crawler com exceção sem impedir o outro de salvar.
 
 - `LinkedinCrawler`: bloqueio (`LinkedinBloqueadoException`) no meio da busca e no meio da leitura
   das descrições; vaga sem Java descartada e não relida na coleta seguinte; vaga já no banco não
