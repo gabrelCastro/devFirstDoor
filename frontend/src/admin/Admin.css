@@ -109,6 +109,23 @@
   opacity: 0.7;
 }
 
+/* Desabilitado porque está trabalhando (aria-busy), não porque a ação é proibida. */
+.admin-botao[aria-busy='true']:disabled {
+  cursor: progress;
+}
+
+.admin select {
+  cursor: pointer;
+}
+
+.admin select:disabled {
+  cursor: not-allowed;
+}
+
+.admin select[aria-busy='true']:disabled {
+  cursor: progress;
+}
+
 .admin-botao-primario {
   border-color: var(--acento);
   background: var(--acento);
@@ -541,6 +558,11 @@
 
 .config-alternar input {
   accent-color: var(--acento);
+  cursor: inherit;
+}
+
+.config-alternar:has(input:disabled) {
+  cursor: not-allowed;
 }
 
 .config-campos-numero {

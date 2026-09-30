@@ -110,6 +110,7 @@ export default function Historico({ aoExpirar }) {
             className="admin-botao"
             onClick={atualizar}
             disabled={carregando}
+            aria-busy={carregando}
           >
             {carregando ? 'carregando...' : 'atualizar'}
           </button>
@@ -197,6 +198,7 @@ export default function Historico({ aoExpirar }) {
             type="button"
             className="admin-botao"
             disabled={carregando || pagina.first}
+            aria-busy={carregando}
             onClick={() => irParaPagina(pagina.number - 1)}
           >
             ← anterior
@@ -208,6 +210,7 @@ export default function Historico({ aoExpirar }) {
             type="button"
             className="admin-botao"
             disabled={carregando || pagina.last}
+            aria-busy={carregando}
             onClick={() => irParaPagina(pagina.number + 1)}
           >
             próxima →

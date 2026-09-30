@@ -118,6 +118,7 @@ function TesteEmpresa({ ats, empresa, aoExpirar }) {
         type="button"
         className="admin-botao admin-botao-discreto"
         disabled={testando || empresa.trim() === ''}
+        aria-busy={testando}
         onClick={testar}
       >
         {testando ? 'testando...' : 'testar'}
@@ -292,7 +293,7 @@ export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
           <h2 className="admin-secao-titulo">configuração</h2>
           <p className="admin-fraco">Alterações entram em vigor na coleta seguinte.</p>
         </div>
-        <button type="submit" className="admin-botao admin-botao-primario" disabled={salvando || !pendente}>
+        <button type="submit" className="admin-botao admin-botao-primario" disabled={salvando || !pendente} aria-busy={salvando}>
           {salvando ? 'salvando...' : pendente ? 'salvar configuração' : 'nada a salvar'}
         </button>
       </div>

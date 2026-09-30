@@ -63,7 +63,7 @@ export default function Login({ aoEntrar, aviso }) {
         </p>
       )}
 
-      <button type="submit" className="admin-botao admin-botao-primario" disabled={enviando}>
+      <button type="submit" className="admin-botao admin-botao-primario" disabled={enviando} aria-busy={enviando}>
         {enviando ? 'entrando...' : 'entrar'}
       </button>
     </form>

@@ -18,6 +18,7 @@ function Paginacao({ pagina, carregando, aoMudar }) {
         type="button"
         className="admin-botao"
         disabled={carregando || pagina.first}
+        aria-busy={carregando}
         onClick={() => aoMudar(pagina.number - 1)}
       >
         ← anterior
@@ -29,6 +30,7 @@ function Paginacao({ pagina, carregando, aoMudar }) {
         type="button"
         className="admin-botao"
         disabled={carregando || pagina.last}
+        aria-busy={carregando}
         onClick={() => aoMudar(pagina.number + 1)}
       >
         próxima →
@@ -86,7 +88,7 @@ function FiltrosVagas({ filtros, aoFiltrar, carregando }) {
         </select>
       </label>
       <div className="vagas-filtros-acoes">
-        <button type="submit" className="admin-botao admin-botao-primario" disabled={carregando}>
+        <button type="submit" className="admin-botao admin-botao-primario" disabled={carregando} aria-busy={carregando}>
           filtrar
         </button>
         <button type="button" className="botao-limpar" onClick={limpar}>
@@ -134,6 +136,7 @@ function TabelaVagas({ vagas, acao, aoAtualizar }) {
                     className="vaga-selecao"
                     value={vaga.nivel}
                     disabled={ocupada}
+                    aria-busy={ocupada}
                     onChange={(e) => aoAtualizar(vaga.id, { nivel: e.target.value })}
                   >
                     <option value="ESTAGIO">estágio</option>
@@ -148,6 +151,7 @@ function TabelaVagas({ vagas, acao, aoAtualizar }) {
                     className="vaga-selecao"
                     value={vaga.remoto ? 'true' : 'false'}
                     disabled={ocupada}
+                    aria-busy={ocupada}
                     onChange={(e) => aoAtualizar(vaga.id, { remoto: e.target.value === 'true' })}
                   >
                     <option value="true">remota</option>
@@ -161,6 +165,7 @@ function TabelaVagas({ vagas, acao, aoAtualizar }) {
                     type="button"
                     className="admin-botao admin-botao-discreto"
                     disabled={ocupada}
+                    aria-busy={ocupada}
                     onClick={() =>
                       aoAtualizar(vaga.id, { status: vaga.status === 'ATIVA' ? 'OCULTA' : 'ATIVA' })
                     }
@@ -267,6 +272,7 @@ function ListaVagas({ aoExpirar }) {
           type="button"
           className="admin-botao"
           disabled={acao != null}
+          aria-busy={acao != null}
           onClick={reclassificar}
         >
           {acao === 'reclassificar' ? 'reclassificando...' : 'reclassificar tudo'}
@@ -379,6 +385,7 @@ function Duplicatas({ aoExpirar }) {
                     type="button"
                     className="admin-botao admin-botao-discreto"
                     disabled={acao != null}
+                    aria-busy={acao != null}
                     onClick={() => manter(vaga)}
                   >
                     {acao === vaga.id ? 'resolvendo...' : 'manter esta'}

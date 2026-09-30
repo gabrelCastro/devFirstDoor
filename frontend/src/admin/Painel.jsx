@@ -83,6 +83,7 @@ function CardCrawler({ crawler, agendamentoPausado, bloqueado, acao, aoColetar }
         className="admin-botao crawler-botao"
         onClick={() => aoColetar(crawler.fonte)}
         disabled={!crawler.ligada || bloqueado}
+        aria-busy={crawler.ligada && bloqueado}
         title={crawler.ligada ? undefined : 'Fonte desligada'}
       >
         {acao === chaveAcao ? 'disparando...' : 'coletar agora'}
@@ -189,6 +190,7 @@ export default function Painel({ aoExpirar }) {
             type="button"
             className="admin-botao admin-botao-primario"
             disabled={bloqueado}
+            aria-busy={bloqueado}
             onClick={() => executar('coletar-todas', '/coletas', 'Coleta iniciada')}
           >
             {acao === 'coletar-todas' ? 'disparando...' : 'coletar todas agora'}
@@ -198,6 +200,7 @@ export default function Painel({ aoExpirar }) {
               type="button"
               className="admin-botao"
               disabled={acao != null}
+              aria-busy={acao != null}
               onClick={() => executar('agendamento', '/agendamento/retomar', 'Agendamento retomado')}
             >
               retomar agendamento
@@ -207,6 +210,7 @@ export default function Painel({ aoExpirar }) {
               type="button"
               className="admin-botao"
               disabled={acao != null}
+              aria-busy={acao != null}
               onClick={() => executar('agendamento', '/agendamento/pausar', 'Agendamento pausado')}
             >
               pausar agendamento

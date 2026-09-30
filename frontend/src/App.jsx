@@ -329,7 +329,7 @@ export default function App() {
           <p className="aviso-falha" role="alert">
             <IconeAlerta tamanho={14} />
             não foi possível atualizar a lista ({erro}).
-            <button type="button" className="botao-limpar" onClick={tentarDeNovo} disabled={atualizando}>
+            <button type="button" className="botao-limpar" onClick={tentarDeNovo} disabled={atualizando} aria-busy={atualizando}>
               tentar de novo
             </button>
           </p>
