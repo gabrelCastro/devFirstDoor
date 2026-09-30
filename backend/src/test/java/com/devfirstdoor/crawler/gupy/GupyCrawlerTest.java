@@ -6,6 +6,7 @@ import com.devfirstdoor.robots.RobotsTxtChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +79,17 @@ class GupyCrawlerTest {
         assertThat(crawler.coletar()).extracting(Vaga::getTitulo).containsExactly("Desenvolvedor Back-end Júnior");
 
         verify(apiClient, times(2)).buscarTextoDaVaga(job.jobUrl());
+    }
+
+    @Test
+    void coletar_deveInformarOProgressoPorTermo() {
+        properties.setTermosBusca(List.of(TERMO, "estagio java"));
+        when(apiClient.buscarTodasAsPaginas(anyString())).thenReturn(List.of());
+        List<String> progresso = new ArrayList<>();
+
+        crawler.coletar(progresso::add);
+
+        assertThat(progresso).containsExactly("termo 1/2", "termo 2/2");
     }
 
     private static GupyJobDto job(Long id, String titulo) {

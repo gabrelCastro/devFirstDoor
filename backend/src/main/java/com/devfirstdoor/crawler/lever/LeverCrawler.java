@@ -42,8 +42,13 @@ public class LeverCrawler implements VagaCrawler {
     }
 
     @Override
+    public boolean isLigada() {
+        return !properties.getEmpresas().isEmpty();
+    }
+
+    @Override
     public List<Vaga> coletar() {
-        if (properties.getEmpresas().isEmpty() || !podeColetar()) {
+        if (!isLigada() || !podeColetar()) {
             return List.of();
         }
 

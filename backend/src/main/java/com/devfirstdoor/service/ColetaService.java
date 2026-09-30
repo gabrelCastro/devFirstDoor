@@ -37,16 +37,18 @@ public class ColetaService {
     private final VagaRepository vagaRepository;
     private final ExpiracaoVagasService expiracaoVagasService;
     private final HistoricoColetaService historicoColetaService;
+    private final AndamentoColeta andamento;
     private final AtomicBoolean emExecucao = new AtomicBoolean(false);
 
     public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                          VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
-                         HistoricoColetaService historicoColetaService) {
+                         HistoricoColetaService historicoColetaService, AndamentoColeta andamento) {
         this.crawlers = crawlers;
         this.deduplicacaoService = deduplicacaoService;
         this.vagaRepository = vagaRepository;
         this.expiracaoVagasService = expiracaoVagasService;
         this.historicoColetaService = historicoColetaService;
+        this.andamento = andamento;
     }
 
     /**
@@ -58,9 +60,11 @@ public class ColetaService {
             log.warn("Já existe uma coleta em andamento; esta ({}) será ignorada", origem);
             return Map.of();
         }
+        andamento.iniciar(origem);
         try {
             return executarCrawlers(origem);
         } finally {
+            andamento.finalizar();
             emExecucao.set(false);
         }
     }
@@ -74,8 +78,9 @@ public class ColetaService {
             String fonte = crawler.getFonte();
             LocalDateTime inicio = LocalDateTime.now();
             ExecucaoFonte resultado;
+            andamento.iniciarFonte(fonte);
             try {
-                List<Vaga> coletadas = crawler.coletar();
+                List<Vaga> coletadas = crawler.coletar(andamento);
                 List<Vaga> novas = deduplicacaoService.filtrarNovas(coletadas);
                 vagaRepository.saveAll(novas);
                 deduplicacaoService.registrarVisita(hashes(coletadas), inicio);

@@ -7,6 +7,7 @@ import com.devfirstdoor.service.DeduplicacaoService;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -127,6 +128,21 @@ class LinkedinCrawlerTest {
         assertThat(crawler().coletar()).isEmpty();
 
         verify(vagaRepository, never()).atualizarDataUltimaVisita(anyCollection(), any());
+    }
+
+    @Test
+    void coletar_deveInformarOProgressoDosTermosEDasDescricoes() {
+        properties.setTermosBusca(List.of("java júnior", "java jr"));
+        when(client.buscarTodasAsPaginas("java júnior")).thenReturn(List.of(
+                job("1", "Desenvolvedor Java Júnior"),
+                job("2", "Programador Java Jr")));
+        when(client.buscarTodasAsPaginas("java jr")).thenReturn(List.of());
+        when(client.buscarDescricao(anyString())).thenReturn(DESCRICAO_JAVA);
+        List<String> progresso = new ArrayList<>();
+
+        crawler().coletar(progresso::add);
+
+        assertThat(progresso).containsExactly("termo 1/2", "termo 2/2", "lendo descrições 1/2", "lendo descrições 2/2");
     }
 
     private LinkedinCrawler crawler() {

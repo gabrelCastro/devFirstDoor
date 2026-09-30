@@ -111,7 +111,7 @@ class ExpiracaoVagasServiceTest {
             }
         };
         return new ColetaService(List.of(crawler), deduplicacaoService, vagaRepository, expiracaoVagasService,
-                historicoColetaService).executarTodos(OrigemColeta.MANUAL);
+                historicoColetaService, new AndamentoColeta()).executarTodos(OrigemColeta.MANUAL);
     }
 
     private void salvar(String titulo, String fonte, LocalDateTime dataColeta) {

@@ -5,6 +5,7 @@ import com.devfirstdoor.domain.ExecucaoFonte;
 import com.devfirstdoor.domain.OrigemColeta;
 import com.devfirstdoor.repository.ExecucaoColetaRepository;
 import com.devfirstdoor.repository.ExecucaoFonteRepository;
+import com.devfirstdoor.service.AndamentoColeta;
 import com.devfirstdoor.service.ColetaService;
 import com.devfirstdoor.service.HistoricoColetaService;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -51,6 +53,9 @@ class AdminControllerTest {
 
     @Autowired
     private ExecucaoFonteRepository execucaoFonteRepository;
+
+    @Autowired
+    private AndamentoColeta andamentoColeta;
 
     @Test
     void apiPublica_deveContinuarAbertaSemCredencial() throws Exception {
@@ -123,6 +128,70 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.content[0].fontes[0].encontradas").value(12))
                 .andExpect(jsonPath("$.content[0].fontes[0].novas").value(4))
                 .andExpect(jsonPath("$.content[0].fontes[0].expiradas").value(2));
+    }
+
+    @Test
+    void crawlers_semCredencial_deveResponder401() throws Exception {
+        mockMvc.perform(get("/api/admin/crawlers"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Nos testes o LinkedIn está desligado (sem bean) e Greenhouse/Lever não têm empresas:
+     * todos precisam aparecer mesmo assim, como desligados.
+     */
+    @Test
+    void crawlers_credencialCerta_deveListarTodasAsFontesComSaudeEAndamento() throws Exception {
+        execucaoFonteRepository.deleteAll();
+        execucaoRepository.deleteAll();
+        ExecucaoColeta execucao = historicoColetaService.iniciar(OrigemColeta.AGENDADA);
+        LocalDateTime inicio = LocalDateTime.now().minusMinutes(10);
+        historicoColetaService.registrar(ExecucaoFonte.sucesso(execucao, "GUPY", inicio, 8, 1, 0));
+        historicoColetaService.registrar(ExecucaoFonte.erro(execucao, "GUPY", inicio.plusMinutes(1), "HTML mudou"));
+        for (int i = 0; i < 3; i++) {
+            historicoColetaService.registrar(ExecucaoFonte.sucesso(execucao, "REMOTEOK", inicio.plusMinutes(i), 0, 0, 0));
+        }
+
+        andamentoColeta.iniciar(OrigemColeta.MANUAL);
+        andamentoColeta.iniciarFonte("GUPY");
+        andamentoColeta.informar("termo 2/6");
+        try {
+            mockMvc.perform(get("/api/admin/crawlers").header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.coletaEmAndamento.origem").value("MANUAL"))
+                    .andExpect(jsonPath("$.coletaEmAndamento.fonteAtual").value("GUPY"))
+                    .andExpect(jsonPath("$.coletaEmAndamento.progresso").value("termo 2/6"))
+                    .andExpect(jsonPath("$.crawlers[*].fonte").value(contains(
+                            "GUPY", "PROGRAMATHOR", "REMOTEOK", "LINKEDIN", "GREENHOUSE", "LEVER")))
+                    .andExpect(jsonPath("$.crawlers[0].ligada").value(true))
+                    .andExpect(jsonPath("$.crawlers[0].rodando").value(true))
+                    .andExpect(jsonPath("$.crawlers[0].progresso").value("termo 2/6"))
+                    .andExpect(jsonPath("$.crawlers[0].saude").value("FALHA"))
+                    .andExpect(jsonPath("$.crawlers[0].ultimaExecucao.status").value("ERRO"))
+                    .andExpect(jsonPath("$.crawlers[0].ultimaExecucao.mensagemErro").value("HTML mudou"))
+                    .andExpect(jsonPath("$.crawlers[0].ultimoSucesso").isNotEmpty())
+                    .andExpect(jsonPath("$.crawlers[1].saude").value("SEM_DADOS"))
+                    .andExpect(jsonPath("$.crawlers[1].rodando").value(false))
+                    .andExpect(jsonPath("$.crawlers[1].progresso").doesNotExist())
+                    .andExpect(jsonPath("$.crawlers[1].ultimaExecucao").doesNotExist())
+                    .andExpect(jsonPath("$.crawlers[2].saude").value("ALERTA"))
+                    .andExpect(jsonPath("$.crawlers[3].ligada").value(false))
+                    .andExpect(jsonPath("$.crawlers[3].saude").value("DESLIGADA"))
+                    .andExpect(jsonPath("$.crawlers[4].saude").value("DESLIGADA"))
+                    .andExpect(jsonPath("$.crawlers[5].saude").value("DESLIGADA"));
+        } finally {
+            andamentoColeta.finalizar();
+        }
+    }
+
+    @Test
+    void crawlers_semColetaRodando_naoDeveTerAndamento() throws Exception {
+        mockMvc.perform(get("/api/admin/crawlers").header(HttpHeaders.AUTHORIZATION, basic("admin", "segredo")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.coletaEmAndamento").doesNotExist())
+                .andExpect(jsonPath("$.crawlers[0].rodando").value(false))
+                // agendamento desligado nos testes
+                .andExpect(jsonPath("$.crawlers[0].proximaColeta").doesNotExist());
     }
 
     @Test

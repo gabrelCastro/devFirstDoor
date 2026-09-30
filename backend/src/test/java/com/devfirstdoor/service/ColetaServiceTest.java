@@ -1,5 +1,6 @@
 package com.devfirstdoor.service;
 
+import com.devfirstdoor.crawler.ProgressoColeta;
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.domain.ExecucaoColeta;
 import com.devfirstdoor.domain.ExecucaoFonte;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +42,7 @@ class ColetaServiceTest {
     private final ExpiracaoVagasService expiracaoVagasService = new ExpiracaoVagasService(vagaRepository, 7);
     private final HistoricoColetaService historicoColetaService =
             new HistoricoColetaService(execucaoRepository, execucaoFonteRepository);
+    private final AndamentoColeta andamento = new AndamentoColeta();
 
     ColetaServiceTest() {
         when(execucaoRepository.save(any())).then(returnsFirstArg());
@@ -161,9 +164,57 @@ class ColetaServiceTest {
         assertThat(fontesGravadas().get(0).getMensagemErro()).hasSize(ExecucaoFonte.TAMANHO_MAXIMO_MENSAGEM);
     }
 
+    @Test
+    void executarTodos_deveExporAFonteAtualEOProgressoEnquantoRoda() {
+        List<AndamentoColeta.Estado> vistos = new ArrayList<>();
+        VagaCrawler comProgresso = new VagaCrawler() {
+            @Override
+            public String getFonte() {
+                return "COM_PROGRESSO";
+            }
+
+            @Override
+            public List<Vaga> coletar() {
+                return List.of();
+            }
+
+            @Override
+            public List<Vaga> coletar(ProgressoColeta progresso) {
+                vistos.add(andamento.atual().orElseThrow());
+                progresso.informar("termo 1/2");
+                vistos.add(andamento.atual().orElseThrow());
+                return List.of();
+            }
+        };
+        VagaCrawler semProgresso = crawlerFalso("SEM_PROGRESSO", () -> {
+            vistos.add(andamento.atual().orElseThrow());
+            return List.of();
+        });
+
+        coletaService(comProgresso, semProgresso).executarTodos(OrigemColeta.MANUAL);
+
+        assertThat(vistos).extracting(AndamentoColeta.Estado::origem).containsOnly(OrigemColeta.MANUAL);
+        assertThat(vistos).extracting(AndamentoColeta.Estado::fonteAtual)
+                .containsExactly("COM_PROGRESSO", "COM_PROGRESSO", "SEM_PROGRESSO");
+        assertThat(vistos).extracting(AndamentoColeta.Estado::progresso)
+                .containsExactly(null, "termo 1/2", null);
+        assertThat(andamento.atual()).isEmpty();
+    }
+
+    @Test
+    void executarTodos_crawlerFalhando_deveLimparOEstadoAoTerminar() {
+        VagaCrawler quebrado = crawlerFalso("QUEBRADO", () -> {
+            throw new IllegalStateException("fonte fora do ar");
+        });
+
+        coletaService(quebrado).executarTodos(OrigemColeta.MANUAL);
+
+        assertThat(andamento.atual()).isEmpty();
+    }
+
     private ColetaService coletaService(VagaCrawler... crawlers) {
         return new ColetaService(List.of(crawlers), deduplicacaoService, vagaRepository, expiracaoVagasService,
-                historicoColetaService);
+                historicoColetaService, andamento);
     }
 
     private List<ExecucaoColeta> execucoesGravadas() {

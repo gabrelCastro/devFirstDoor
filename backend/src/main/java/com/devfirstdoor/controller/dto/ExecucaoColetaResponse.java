@@ -40,7 +40,7 @@ public record ExecucaoColetaResponse(
             String mensagemErro
     ) {
 
-        static Fonte from(ExecucaoFonte resultado) {
+        public static Fonte from(ExecucaoFonte resultado) {
             return new Fonte(
                     resultado.getFonte(),
                     resultado.getInicio(),

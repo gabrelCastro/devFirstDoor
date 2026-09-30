@@ -1,5 +1,6 @@
 package com.devfirstdoor.crawler.gupy;
 
+import com.devfirstdoor.crawler.ProgressoColeta;
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.gupy.dto.GupyJobDto;
 import com.devfirstdoor.domain.NivelVaga;
@@ -52,14 +53,22 @@ public class GupyCrawler implements VagaCrawler {
 
     @Override
     public List<Vaga> coletar() {
+        return coletar(ProgressoColeta.NENHUM);
+    }
+
+    @Override
+    public List<Vaga> coletar(ProgressoColeta progresso) {
         if (!podeColetar()) {
             return List.of();
         }
 
         List<Vaga> vagas = new ArrayList<>();
         Set<Long> idsVistos = new HashSet<>();
+        List<String> termos = properties.getTermosBusca();
 
-        for (String termo : properties.getTermosBusca()) {
+        for (int i = 0; i < termos.size(); i++) {
+            String termo = termos.get(i);
+            progresso.informar("termo %d/%d".formatted(i + 1, termos.size()));
             try {
                 List<GupyJobDto> jobs = apiClient.buscarTodasAsPaginas(termo);
                 for (GupyJobDto job : jobs) {

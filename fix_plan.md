@@ -63,7 +63,14 @@ Faça sempre o primeiro `[ ]`, um por iteração.
 - `GET /api/admin/execucoes` (paginado, mais recente primeiro, com os resultados por fonte).
 - Testes: gravação de sucesso e de erro por fonte; origem; endpoint com e sem credencial.
 
-## 3. [ ] Estado ao vivo e saúde dos crawlers
+## 3. [x] Estado ao vivo e saúde dos crawlers
+
+> Feito: `AndamentoColeta` (estado em memória, alimentado pelo `ColetaService`), colaborador
+> `ProgressoColeta` via `VagaCrawler.coletar(progresso)` (LinkedIn: termos e descrições; Gupy: termos),
+> `VagaCrawler.isLigada()` (Greenhouse/Lever sem empresas = desligados), regras em `SaudeCrawler`,
+> próxima coleta no `ColetaAgendadaRunner` e `GET /api/admin/crawlers` (`EstadoCrawlersService`, lista
+> fixa de fontes para incluir o LinkedIn sem bean). Testes em `SaudeCrawlerTest`, `AdminControllerTest`,
+> `ColetaServiceTest` e nos testes dos crawlers.
 
 - Estado em memória da coleta em andamento: se está rodando, origem, início, fonte atual e um texto
   de progresso. Crawlers podem informar progresso por um colaborador opcional (ex:

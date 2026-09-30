@@ -1,5 +1,6 @@
 package com.devfirstdoor.crawler.linkedin;
 
+import com.devfirstdoor.crawler.ProgressoColeta;
 import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.crawler.linkedin.LinkedinHtmlClient.LinkedinBloqueadoException;
 import com.devfirstdoor.domain.NivelVaga;
@@ -65,10 +66,17 @@ public class LinkedinCrawler implements VagaCrawler {
 
     @Override
     public List<Vaga> coletar() {
-        List<Candidata> candidatas = buscarCandidatas();
+        return coletar(ProgressoColeta.NENHUM);
+    }
+
+    @Override
+    public List<Vaga> coletar(ProgressoColeta progresso) {
+        List<Candidata> candidatas = buscarCandidatas(progresso);
         List<Vaga> vagas = new ArrayList<>();
 
-        for (Candidata candidata : candidatas) {
+        for (int i = 0; i < candidatas.size(); i++) {
+            Candidata candidata = candidatas.get(i);
+            progresso.informar("lendo descrições %d/%d".formatted(i + 1, candidatas.size()));
             String descricao;
             try {
                 descricao = candidata.job().id() != null ? client.buscarDescricao(candidata.job().id()) : null;
@@ -102,13 +110,16 @@ public class LinkedinCrawler implements VagaCrawler {
      * existem não são devolvidas (para não reler a descrição), então têm a visita
      * registrada aqui, senão expirariam mesmo continuando na busca.
      */
-    private List<Candidata> buscarCandidatas() {
+    private List<Candidata> buscarCandidatas(ProgressoColeta progresso) {
         List<Candidata> candidatas = new ArrayList<>();
         Set<String> hashesVistos = new HashSet<>();
         Set<String> hashesJaSalvos = new HashSet<>();
         LocalDateTime inicio = LocalDateTime.now();
+        List<String> termos = properties.getTermosBusca();
 
-        for (String termo : properties.getTermosBusca()) {
+        for (int i = 0; i < termos.size(); i++) {
+            String termo = termos.get(i);
+            progresso.informar("termo %d/%d".formatted(i + 1, termos.size()));
             try {
                 for (LinkedinJobDto job : client.buscarTodasAsPaginas(termo)) {
                     avaliar(job, hashesVistos, hashesJaSalvos).ifPresent(candidatas::add);
