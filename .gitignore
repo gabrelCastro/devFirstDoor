@@ -15,6 +15,3 @@ frontend/dist/
 
 # Ferramentas locais
 .claude/
-ralph-logs/
-.ralph-commit-msg
-.ralph-commit-msg.final
