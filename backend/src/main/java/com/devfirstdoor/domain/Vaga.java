@@ -69,6 +69,14 @@ public class Vaga {
     @Column(length = 2048)
     private String textoBusca;
 
+    // Permitem comparar duplicatas entre fontes diretamente no banco, sem carregar
+    // todas as vagas para normalizar em memória.
+    @Column(length = 512)
+    private String tituloNormalizado;
+
+    @Column(length = 512)
+    private String empresaNormalizada;
+
     protected Vaga() {
     }
 
@@ -95,6 +103,8 @@ public class Vaga {
         }
         this.internacional = ClassificacaoVaga.isInternacional(fonte, local);
         this.textoBusca = ClassificacaoVaga.textoDeBusca(titulo, empresa, local);
+        this.tituloNormalizado = ClassificacaoVaga.normalizarParaDuplicata(titulo);
+        this.empresaNormalizada = ClassificacaoVaga.normalizarParaDuplicata(empresa);
     }
 
     public void alterarStatus(StatusVaga status) {
@@ -177,6 +187,14 @@ public class Vaga {
 
     public String getTextoBusca() {
         return textoBusca;
+    }
+
+    public String getTituloNormalizado() {
+        return tituloNormalizado;
+    }
+
+    public String getEmpresaNormalizada() {
+        return empresaNormalizada;
     }
 
     public void setHashDeduplicacao(String hashDeduplicacao) {

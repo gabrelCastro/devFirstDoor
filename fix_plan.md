@@ -207,7 +207,11 @@ Feito: `DescarteService` registra os descartes dos seis crawlers (link + motivo 
 - Não altere nenhuma regra de filtro, só registre.
 - Testes: registro por motivo em pelo menos LinkedIn, Gupy e ProgramaThor; retenção; endpoint.
 
-## 12. [ ] Métricas
+## 12. [x] Métricas
+
+> Feito: `GET /api/admin/metricas` agrega no banco vagas ativas, novas, exclusivas e expiradas,
+> além dos descartes recentes; chaves normalizadas persistidas permitem detectar duplicatas entre
+> fontes sem carregar vagas em memória, com cobertura autenticada em H2.
 
 - `GET /api/admin/metricas`: vagas ativas por fonte, nível e modalidade; vagas novas por dia e por
   fonte nos últimos 30 dias; tempo médio no ar das vagas expiradas; vagas "exclusivas" por fonte

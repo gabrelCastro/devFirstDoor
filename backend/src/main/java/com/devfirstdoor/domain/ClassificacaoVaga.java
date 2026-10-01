@@ -73,4 +73,9 @@ public final class ClassificacaoVaga {
     public static String textoDeBusca(String titulo, String empresa, String local) {
         return TextNormalizer.normalizar(titulo + " " + empresa + " " + (local == null ? "" : local));
     }
+
+    /** Mesma normalização usada pela moderação para reconhecer vagas iguais entre fontes. */
+    public static String normalizarParaDuplicata(String valor) {
+        return TextNormalizer.normalizar(valor);
+    }
 }

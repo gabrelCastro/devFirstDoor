@@ -55,7 +55,7 @@ public class ConsultaVagasService {
      */
     @Transactional
     public int preencherCamposDerivadosPendentes() {
-        var pendentes = vagaRepository.findByRemotoIsNullOrInternacionalIsNullOrTextoBuscaIsNull();
+        var pendentes = vagaRepository.findComCamposDerivadosPendentes();
         pendentes.forEach(Vaga::atualizarCamposDerivados);
         vagaRepository.saveAll(pendentes);
         return pendentes.size();
