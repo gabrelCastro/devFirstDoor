@@ -219,7 +219,10 @@ Feito: `DescarteService` registra os descartes dos seis crawlers (link + motivo 
 - Consultas agregadas no banco (não carregar todas as vagas em memória).
 - Testes com dados de exemplo em H2.
 
-## 13. [ ] Notificações por Telegram
+## 13. [x] Notificações por Telegram
+
+> Feito: configuração persistida com token oculto na API, cliente isolado da Bot API, mensagens
+> agrupadas de vagas novas, alertas sem repetição nas transições de saúde e endpoint autenticado de teste.
 
 - Configuração (via item 6): ligado/desligado, token do bot e chat id (o token nunca é devolvido
   pela API de configuração: mostre só se está preenchido).

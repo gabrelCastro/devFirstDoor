@@ -38,6 +38,8 @@ class ConfiguracaoServiceTest {
         assertThat(configuracao.intervaloColeta().toHours()).isEqualTo(6);
         assertThat(configuracao.diasParaExpirar()).isEqualTo(7);
         assertThat(configuracao.pausaLinkedinMs()).isEqualTo(3000);
+        assertThat(service.obterTelegram().ligadas()).isFalse();
+        assertThat(service.obterTelegram().tokenPreenchido()).isFalse();
     }
 
     @Test
@@ -47,12 +49,37 @@ class ConfiguracaoServiceTest {
 
         ConfiguracaoColeta seguinte = service.obter();
 
-        assertThat(repository.count()).isEqualTo(10);
+        assertThat(repository.count()).isEqualTo(13);
         assertThat(seguinte.termosBuscaGupy()).containsExactly("primeiro termo");
         assertThat(seguinte.empresasGreenhouse()).containsExactly("empresa-a");
         assertThat(seguinte.intervaloColeta().toMinutes()).isEqualTo(45);
         assertThat(seguinte.diasParaExpirar()).isEqualTo(12);
         assertThat(seguinte.agendamentoPausado()).isTrue();
+    }
+
+    @Test
+    void salvar_deveOcultarTokenNaRespostaEPreservaLoQuandoNaoForReenviado() {
+        ConfiguracaoAdminRequest inicial = requestPadrao(
+                List.of("java"), List.of(), 30L, 7, false, true, "token-secreto", "12345");
+
+        var resposta = service.salvar(inicial);
+
+        assertThat(resposta.telegramTokenPreenchido()).isTrue();
+        assertThat(resposta.telegramChatId()).isEqualTo("12345");
+        assertThat(resposta.toString()).doesNotContain("token-secreto");
+
+        service.salvar(requestPadrao(
+                List.of("java"), List.of(), 30L, 7, false, true, null, "12345"));
+
+        assertThat(service.obterTelegram().token()).isEqualTo("token-secreto");
+    }
+
+    @Test
+    void salvar_notificacoesLigadasSemCredenciais_deveRecusar() {
+        assertThatThrownBy(() -> service.salvar(requestPadrao(
+                List.of("java"), List.of(), 30L, 7, false, true, "", "")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("token e o chat id");
     }
 
     @Test
@@ -86,6 +113,15 @@ class ConfiguracaoServiceTest {
     private static ConfiguracaoAdminRequest requestPadrao(List<String> termosGupy,
                                                            List<String> empresasGreenhouse,
                                                            long intervalo, int dias, boolean pausado) {
+        return requestPadrao(termosGupy, empresasGreenhouse, intervalo, dias, pausado,
+                false, null, "");
+    }
+
+    private static ConfiguracaoAdminRequest requestPadrao(List<String> termosGupy,
+                                                           List<String> empresasGreenhouse,
+                                                           long intervalo, int dias, boolean pausado,
+                                                           boolean notificacoesLigadas,
+                                                           String telegramToken, String telegramChatId) {
         Map<String, Boolean> fontes = new LinkedHashMap<>();
         ConfiguracaoService.FONTES.forEach(fonte -> fontes.put(fonte, !"LINKEDIN".equals(fonte)));
         return new ConfiguracaoAdminRequest(
@@ -98,7 +134,10 @@ class ConfiguracaoServiceTest {
                 dias,
                 1000L,
                 500L,
-                pausado
+                pausado,
+                notificacoesLigadas,
+                telegramToken,
+                telegramChatId
         );
     }
 }

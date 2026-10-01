@@ -14,6 +14,9 @@ public record ConfiguracaoAdminRequest(
         Integer diasParaExpirar,
         Long pausaLinkedinMs,
         Long variacaoPausaLinkedinMs,
-        Boolean agendamentoPausado
+        Boolean agendamentoPausado,
+        Boolean notificacoesTelegramLigadas,
+        String telegramToken,
+        String telegramChatId
 ) {
 }

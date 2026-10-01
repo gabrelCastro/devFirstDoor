@@ -20,6 +20,11 @@ app:
   admin:
     usuario: ${ADMIN_USER:admin}
     senha: ${ADMIN_PASSWORD:}
+  notificacoes:
+    telegram:
+      ligadas: false
+      token: ${TELEGRAM_BOT_TOKEN:}
+      chat-id: ${TELEGRAM_CHAT_ID:}
   crawler:
     # Intervalo entre coletas agendadas (ex: 6h, 30m, PT6H).
     intervalo: 6h

@@ -14,6 +14,9 @@ public record ConfiguracaoAdminResponse(
         long pausaLinkedinMs,
         long variacaoPausaLinkedinMs,
         boolean agendamentoPausado,
-        boolean linkedinChaveMestraAtiva
+        boolean linkedinChaveMestraAtiva,
+        boolean notificacoesTelegramLigadas,
+        boolean telegramTokenPreenchido,
+        String telegramChatId
 ) {
 }

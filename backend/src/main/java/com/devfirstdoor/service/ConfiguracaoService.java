@@ -37,6 +37,9 @@ public class ConfiguracaoService {
     private static final String PAUSA_LINKEDIN = "linkedin.pausa-ms";
     private static final String VARIACAO_PAUSA_LINKEDIN = "linkedin.variacao-pausa-ms";
     private static final String AGENDAMENTO_PAUSADO = "agendamento.pausado";
+    private static final String NOTIFICACOES_TELEGRAM_LIGADAS = "telegram.ligadas";
+    private static final String TELEGRAM_TOKEN = "telegram.token";
+    private static final String TELEGRAM_CHAT_ID = "telegram.chat-id";
 
     private final ConfiguracaoRepository repository;
     private final ObjectMapper objectMapper;
@@ -48,6 +51,9 @@ public class ConfiguracaoService {
     private final RemoteOkCrawlerProperties remoteok;
     private final Duration intervaloPadrao;
     private final int diasParaExpirarPadrao;
+    private final boolean notificacoesTelegramLigadasPadrao;
+    private final String telegramTokenPadrao;
+    private final String telegramChatIdPadrao;
 
     public ConfiguracaoService(ConfiguracaoRepository repository, ObjectMapper objectMapper,
                                GupyCrawlerProperties gupy, LinkedinCrawlerProperties linkedin,
@@ -64,6 +70,10 @@ public class ConfiguracaoService {
         this.remoteok = remoteok;
         this.intervaloPadrao = environment.getProperty("app.crawler.intervalo", Duration.class, Duration.ofHours(6));
         this.diasParaExpirarPadrao = environment.getProperty("app.crawler.dias-para-expirar", Integer.class, 7);
+        this.notificacoesTelegramLigadasPadrao =
+                environment.getProperty("app.notificacoes.telegram.ligadas", Boolean.class, false);
+        this.telegramTokenPadrao = environment.getProperty("app.notificacoes.telegram.token", "");
+        this.telegramChatIdPadrao = environment.getProperty("app.notificacoes.telegram.chat-id", "");
     }
 
     /** Lê o banco novamente; por isso uma alteração vale já para a coleta seguinte. */
@@ -90,12 +100,14 @@ public class ConfiguracaoService {
 
     @Transactional(readOnly = true)
     public ConfiguracaoAdminResponse consultar() {
-        return resposta(obter());
+        return resposta(obter(), obterTelegram());
     }
 
     @Transactional
     public ConfiguracaoAdminResponse salvar(ConfiguracaoAdminRequest request) {
-        validar(request);
+        ConfiguracaoTelegram telegramAtual = obterTelegram();
+        ConfiguracaoTelegram telegram = telegramSolicitado(request, telegramAtual);
+        validar(request, telegram);
         Map<String, Boolean> fontes = new LinkedHashMap<>();
         FONTES.forEach(fonte -> fontes.put(fonte, request.fontesLigadas().get(fonte)));
 
@@ -109,9 +121,25 @@ public class ConfiguracaoService {
                 item(DIAS_EXPIRAR, request.diasParaExpirar()),
                 item(PAUSA_LINKEDIN, request.pausaLinkedinMs()),
                 item(VARIACAO_PAUSA_LINKEDIN, request.variacaoPausaLinkedinMs()),
-                item(AGENDAMENTO_PAUSADO, request.agendamentoPausado())
+                item(AGENDAMENTO_PAUSADO, request.agendamentoPausado()),
+                item(NOTIFICACOES_TELEGRAM_LIGADAS, telegram.ligadas()),
+                item(TELEGRAM_TOKEN, telegram.token()),
+                item(TELEGRAM_CHAT_ID, telegram.chatId())
         ));
-        return resposta(obter());
+        return resposta(obter(), obterTelegram());
+    }
+
+    /** O token só sai deste serviço para o cliente do Telegram, nunca para a API administrativa. */
+    @Transactional(readOnly = true)
+    public ConfiguracaoTelegram obterTelegram() {
+        Map<String, String> valores = new LinkedHashMap<>();
+        repository.findAll().forEach(item -> valores.put(item.getChave(), item.getValorJson()));
+        return new ConfiguracaoTelegram(
+                ler(valores, NOTIFICACOES_TELEGRAM_LIGADAS, Boolean.class,
+                        notificacoesTelegramLigadasPadrao),
+                ler(valores, TELEGRAM_TOKEN, String.class, telegramTokenPadrao),
+                ler(valores, TELEGRAM_CHAT_ID, String.class, telegramChatIdPadrao)
+        );
     }
 
     @Transactional
@@ -130,7 +158,7 @@ public class ConfiguracaoService {
         return fontes;
     }
 
-    private void validar(ConfiguracaoAdminRequest request) {
+    private void validar(ConfiguracaoAdminRequest request, ConfiguracaoTelegram telegram) {
         if (request == null || request.fontesLigadas() == null
                 || FONTES.stream().anyMatch(fonte -> request.fontesLigadas().get(fonte) == null)) {
             throw new IllegalArgumentException("Informe o estado ligado/desligado de todas as fontes");
@@ -155,6 +183,10 @@ public class ConfiguracaoService {
         if (Boolean.TRUE.equals(request.fontesLigadas().get("LINKEDIN")) && !linkedin.isEnabled()) {
             throw new IllegalArgumentException("O LinkedIn só pode ser ligado quando LINKEDIN_ENABLED=true");
         }
+        if (telegram.ligadas() && (!telegram.tokenPreenchido() || telegram.chatId().isBlank())) {
+            throw new IllegalArgumentException(
+                    "Para ligar as notificações do Telegram, informe o token e o chat id");
+        }
     }
 
     private static void validarLista(String nome, List<String> valores) {
@@ -166,7 +198,7 @@ public class ConfiguracaoService {
         }
     }
 
-    private ConfiguracaoAdminResponse resposta(ConfiguracaoColeta configuracao) {
+    private ConfiguracaoAdminResponse resposta(ConfiguracaoColeta configuracao, ConfiguracaoTelegram telegram) {
         Map<String, Boolean> fontesEfetivas = new LinkedHashMap<>();
         FONTES.forEach(fonte -> fontesEfetivas.put(fonte, configuracao.fonteLigada(fonte)));
         return new ConfiguracaoAdminResponse(
@@ -180,8 +212,23 @@ public class ConfiguracaoService {
                 configuracao.pausaLinkedinMs(),
                 configuracao.variacaoPausaLinkedinMs(),
                 configuracao.agendamentoPausado(),
-                configuracao.linkedinChaveMestraAtiva()
+                configuracao.linkedinChaveMestraAtiva(),
+                telegram.ligadas(),
+                telegram.tokenPreenchido(),
+                telegram.chatId()
         );
+    }
+
+    /** Token ausente no PUT preserva o valor atual; vazio permite removê-lo explicitamente. */
+    private static ConfiguracaoTelegram telegramSolicitado(ConfiguracaoAdminRequest request,
+                                                            ConfiguracaoTelegram atual) {
+        boolean ligadas = request != null && request.notificacoesTelegramLigadas() != null
+                ? request.notificacoesTelegramLigadas() : atual.ligadas();
+        String token = request != null && request.telegramToken() != null
+                ? request.telegramToken().trim() : atual.token();
+        String chatId = request != null && request.telegramChatId() != null
+                ? request.telegramChatId().trim() : atual.chatId();
+        return new ConfiguracaoTelegram(ligadas, token, chatId);
     }
 
     private Configuracao item(String chave, Object valor) {
@@ -213,6 +260,12 @@ public class ConfiguracaoService {
             return objectMapper.readValue(valor, tipo);
         } catch (Exception e) {
             throw new IllegalStateException("Configuração persistida inválida: " + chave, e);
+        }
+    }
+
+    public record ConfiguracaoTelegram(boolean ligadas, String token, String chatId) {
+        public boolean tokenPreenchido() {
+            return token != null && !token.isBlank();
         }
     }
 }

@@ -6,6 +6,7 @@ import com.devfirstdoor.domain.ExecucaoColeta;
 import com.devfirstdoor.domain.ExecucaoFonte;
 import com.devfirstdoor.domain.NivelVaga;
 import com.devfirstdoor.domain.OrigemColeta;
+import com.devfirstdoor.domain.SaudeCrawler;
 import com.devfirstdoor.domain.StatusExecucao;
 import com.devfirstdoor.domain.StatusFonte;
 import com.devfirstdoor.domain.Vaga;
@@ -225,6 +226,21 @@ class ColetaServiceTest {
         coletaService.executarTodos(OrigemColeta.AGENDADA);
 
         verify(descarteService).removerAntigos();
+    }
+
+    @Test
+    void executarTodos_deveNotificarAsVagasNovasEAvaliacaoDeSaude() {
+        NotificacaoService notificacaoService = mock(NotificacaoService.class);
+        when(notificacaoService.consultarSaude("BOM", true)).thenReturn(SaudeCrawler.SEM_DADOS);
+        Vaga nova = vaga("Júnior Java para notificar");
+        ColetaService coletaService = new ColetaService(
+                List.of(crawlerFalso("BOM", () -> List.of(nova))), deduplicacaoService, vagaRepository,
+                expiracaoVagasService, historicoColetaService, andamento, null, notificacaoService, Runnable::run);
+
+        coletaService.executarTodos(OrigemColeta.AGENDADA);
+
+        verify(notificacaoService).notificarMudancaSaude("BOM", true, SaudeCrawler.SEM_DADOS);
+        verify(notificacaoService).notificarVagasNovas(List.of(nova));
     }
 
     @Test

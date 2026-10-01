@@ -16,6 +16,7 @@ import com.devfirstdoor.repository.ExecucaoFonteRepository;
 import com.devfirstdoor.repository.VagaDescartadaRepository;
 import com.devfirstdoor.service.AndamentoColeta;
 import com.devfirstdoor.service.ColetaService;
+import com.devfirstdoor.service.ClienteTelegram;
 import com.devfirstdoor.service.DescarteService;
 import com.devfirstdoor.service.HistoricoColetaService;
 import com.devfirstdoor.service.PausaAgendamento;
@@ -64,6 +65,10 @@ class AdminControllerTest {
 
     @MockitoBean
     private LeverApiClient leverApiClient;
+
+    /** Cliente falso: nenhum teste administrativo chama a API real do Telegram. */
+    @MockitoBean
+    private ClienteTelegram clienteTelegram;
 
     @Autowired
     private HistoricoColetaService historicoColetaService;
@@ -401,6 +406,36 @@ class AdminControllerTest {
     }
 
     @Test
+    void notificacoesTestar_semCredencial_deveResponder401SemEnviar() throws Exception {
+        mockMvc.perform(post("/api/admin/notificacoes/testar"))
+                .andExpect(status().isUnauthorized());
+
+        verify(clienteTelegram, never()).enviar(any(), any(), any());
+    }
+
+    @Test
+    void notificacoesTestar_comCredencial_deveUsarTokenSemDevolveLoNaConfiguracao() throws Exception {
+        String credencial = basic("admin", "segredo");
+        mockMvc.perform(put("/api/admin/configuracao")
+                        .header(HttpHeaders.AUTHORIZATION, credencial)
+                        .contentType("application/json")
+                        .content(configuracaoTelegramJson()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notificacoesTelegramLigadas").value(true))
+                .andExpect(jsonPath("$.telegramTokenPreenchido").value(true))
+                .andExpect(jsonPath("$.telegramToken").doesNotExist())
+                .andExpect(jsonPath("$.telegramChatId").value("12345"));
+
+        mockMvc.perform(post("/api/admin/notificacoes/testar")
+                        .header(HttpHeaders.AUTHORIZATION, credencial))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensagem").value("Mensagem de teste enviada"));
+
+        verify(clienteTelegram).enviar("token-secreto", "12345",
+                "Teste de notificações do Dev First Door.");
+    }
+
+    @Test
     void testarBoard_semCredencial_deveResponder401SemConsultarOClient() throws Exception {
         mockMvc.perform(post("/api/admin/boards/testar")
                         .contentType("application/json")
@@ -469,9 +504,20 @@ class AdminControllerTest {
                   "diasParaExpirar": %d,
                   "pausaLinkedinMs": 3000,
                   "variacaoPausaLinkedinMs": 2000,
-                  "agendamentoPausado": false
+                  "agendamentoPausado": false,
+                  "notificacoesTelegramLigadas": false,
+                  "telegramToken": null,
+                  "telegramChatId": ""
                 }
                 """.formatted(termoGupy, intervalo, dias);
+    }
+
+    private static String configuracaoTelegramJson() {
+        return configuracaoJson(360, 7, "java")
+                .replace("\"notificacoesTelegramLigadas\": false",
+                        "\"notificacoesTelegramLigadas\": true")
+                .replace("\"telegramToken\": null", "\"telegramToken\": \"token-secreto\"")
+                .replace("\"telegramChatId\": \"\"", "\"telegramChatId\": \"12345\"");
     }
 
     static String basic(String usuario, String senha) {

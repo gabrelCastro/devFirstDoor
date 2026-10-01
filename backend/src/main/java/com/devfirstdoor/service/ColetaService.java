@@ -4,6 +4,7 @@ import com.devfirstdoor.crawler.VagaCrawler;
 import com.devfirstdoor.domain.ExecucaoColeta;
 import com.devfirstdoor.domain.ExecucaoFonte;
 import com.devfirstdoor.domain.OrigemColeta;
+import com.devfirstdoor.domain.SaudeCrawler;
 import com.devfirstdoor.domain.Vaga;
 import com.devfirstdoor.repository.VagaRepository;
 import org.slf4j.Logger;
@@ -45,6 +46,7 @@ public class ColetaService {
     private final ExpiracaoVagasService expiracaoVagasService;
     private final HistoricoColetaService historicoColetaService;
     private final DescarteService descarteService;
+    private final NotificacaoService notificacaoService;
     private final AndamentoColeta andamento;
     private final Executor segundoPlano;
     private final AtomicBoolean emExecucao = new AtomicBoolean(false);
@@ -61,16 +63,16 @@ public class ColetaService {
     public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                          VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
                          HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
-                         DescarteService descarteService) {
+                         DescarteService descarteService, NotificacaoService notificacaoService) {
         this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
-                andamento, descarteService, ColetaService::novaThread);
+                andamento, descarteService, notificacaoService, ColetaService::novaThread);
     }
 
     public ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                          VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
                          HistoricoColetaService historicoColetaService, AndamentoColeta andamento) {
         this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
-                andamento, null, ColetaService::novaThread);
+                andamento, null, null, ColetaService::novaThread);
     }
 
     ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
@@ -78,13 +80,22 @@ public class ColetaService {
                   HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
                   Executor segundoPlano) {
         this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
-                andamento, null, segundoPlano);
+                andamento, null, null, segundoPlano);
     }
 
     ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
                   VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
                   HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
                   DescarteService descarteService, Executor segundoPlano) {
+        this(crawlers, deduplicacaoService, vagaRepository, expiracaoVagasService, historicoColetaService,
+                andamento, descarteService, null, segundoPlano);
+    }
+
+    ColetaService(List<VagaCrawler> crawlers, DeduplicacaoService deduplicacaoService,
+                  VagaRepository vagaRepository, ExpiracaoVagasService expiracaoVagasService,
+                  HistoricoColetaService historicoColetaService, AndamentoColeta andamento,
+                  DescarteService descarteService, NotificacaoService notificacaoService,
+                  Executor segundoPlano) {
         this.crawlers = crawlers;
         this.deduplicacaoService = deduplicacaoService;
         this.vagaRepository = vagaRepository;
@@ -92,6 +103,7 @@ public class ColetaService {
         this.historicoColetaService = historicoColetaService;
         this.andamento = andamento;
         this.descarteService = descarteService;
+        this.notificacaoService = notificacaoService;
         this.segundoPlano = segundoPlano;
     }
 
@@ -179,6 +191,7 @@ public class ColetaService {
     private Map<String, Integer> executarCrawlers(OrigemColeta origem, List<VagaCrawler> alvo) {
         try {
             Map<String, Integer> vagasNovasPorFonte = new LinkedHashMap<>();
+            List<Vaga> todasAsNovas = new ArrayList<>();
             ExecucaoColeta execucao = historicoColetaService.iniciar(origem);
             List<ExecucaoFonte> resultados = new ArrayList<>();
 
@@ -186,11 +199,13 @@ public class ColetaService {
                 String fonte = crawler.getFonte();
                 LocalDateTime inicio = LocalDateTime.now();
                 ExecucaoFonte resultado;
+                SaudeCrawler saudeAnterior = consultarSaudeAnterior(crawler);
                 andamento.iniciarFonte(fonte);
                 try {
                     List<Vaga> coletadas = crawler.coletar(andamento);
                     List<Vaga> novas = deduplicacaoService.filtrarNovas(coletadas);
                     vagaRepository.saveAll(novas);
+                    todasAsNovas.addAll(novas);
                     deduplicacaoService.registrarVisita(hashes(coletadas), inicio);
                     int expiradas = removerExpiradas(fonte, coletadas, inicio);
                     vagasNovasPorFonte.put(fonte, novas.size());
@@ -205,13 +220,42 @@ public class ColetaService {
                 }
                 historicoColetaService.registrar(resultado);
                 resultados.add(resultado);
+                notificarMudancaSaude(crawler, saudeAnterior);
             }
             historicoColetaService.finalizar(execucao, resultados);
+            if (notificacaoService != null) {
+                notificacaoService.notificarVagasNovas(todasAsNovas);
+            }
             return vagasNovasPorFonte;
         } finally {
             if (descarteService != null) {
                 descarteService.removerAntigos();
             }
+        }
+    }
+
+    private SaudeCrawler consultarSaudeAnterior(VagaCrawler crawler) {
+        if (notificacaoService == null) {
+            return null;
+        }
+        try {
+            return notificacaoService.consultarSaude(crawler.getFonte(), crawler.isLigada());
+        } catch (RuntimeException e) {
+            log.warn("Não foi possível consultar a saúde anterior do crawler {} para notificação",
+                    crawler.getFonte());
+            return null;
+        }
+    }
+
+    private void notificarMudancaSaude(VagaCrawler crawler, SaudeCrawler anterior) {
+        if (notificacaoService == null || anterior == null) {
+            return;
+        }
+        try {
+            notificacaoService.notificarMudancaSaude(crawler.getFonte(), crawler.isLigada(), anterior);
+        } catch (RuntimeException e) {
+            log.warn("Não foi possível avaliar a mudança de saúde do crawler {} para notificação",
+                    crawler.getFonte());
         }
     }
 

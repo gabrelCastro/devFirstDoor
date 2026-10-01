@@ -11,6 +11,7 @@ import com.devfirstdoor.service.ColetaService;
 import com.devfirstdoor.service.ConfiguracaoService;
 import com.devfirstdoor.service.EstadoCrawlersService;
 import com.devfirstdoor.service.HistoricoColetaService;
+import com.devfirstdoor.service.NotificacaoService;
 import com.devfirstdoor.service.PausaAgendamento;
 import com.devfirstdoor.service.TesteBoardService;
 import jakarta.validation.Valid;
@@ -41,16 +42,19 @@ public class AdminController {
     private final PausaAgendamento pausaAgendamento;
     private final ConfiguracaoService configuracaoService;
     private final TesteBoardService testeBoardService;
+    private final NotificacaoService notificacaoService;
 
     public AdminController(ColetaService coletaService, HistoricoColetaService historicoColetaService,
                            EstadoCrawlersService estadoCrawlersService, PausaAgendamento pausaAgendamento,
-                           ConfiguracaoService configuracaoService, TesteBoardService testeBoardService) {
+                           ConfiguracaoService configuracaoService, TesteBoardService testeBoardService,
+                           NotificacaoService notificacaoService) {
         this.coletaService = coletaService;
         this.historicoColetaService = historicoColetaService;
         this.estadoCrawlersService = estadoCrawlersService;
         this.pausaAgendamento = pausaAgendamento;
         this.configuracaoService = configuracaoService;
         this.testeBoardService = testeBoardService;
+        this.notificacaoService = notificacaoService;
     }
 
     /** Usado pelo frontend para validar o login. */
@@ -130,6 +134,12 @@ public class AdminController {
     @PostMapping("/boards/testar")
     public TesteBoardResponse testarBoard(@Valid @RequestBody TesteBoardRequest request) {
         return testeBoardService.testar(request);
+    }
+
+    @PostMapping("/notificacoes/testar")
+    public Map<String, String> testarNotificacao() {
+        notificacaoService.enviarTeste();
+        return Map.of("mensagem", "Mensagem de teste enviada");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
