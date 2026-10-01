@@ -190,6 +190,82 @@ function SecaoFonte({ nome, fonte, configuracao, aoAlternar, children }) {
   )
 }
 
+function Notificacoes({ configuracao, pendente, aoAlterar, aoExpirar }) {
+  const [testando, setTestando] = useState(false)
+  const [mensagem, setMensagem] = useState(null)
+
+  async function testar() {
+    setTestando(true)
+    setMensagem(null)
+    try {
+      const resposta = await chamarAdmin('/notificacoes/testar', { method: 'POST' })
+      setMensagem({ tipo: 'ok', texto: resposta.mensagem })
+    } catch (e) {
+      if (e instanceof ErroNaoAutenticado) aoExpirar()
+      else setMensagem({ tipo: 'erro', texto: e.message })
+    } finally {
+      setTestando(false)
+    }
+  }
+
+  const podeTestar = configuracao.telegramTokenPreenchido && configuracao.telegramChatId.trim() !== ''
+  return (
+    <section className="config-geral config-notificacoes">
+      <div className="config-fonte-cabecalho">
+        <div>
+          <h2>notificações pelo Telegram</h2>
+          <p className="admin-fraco">Avisa sobre vagas novas e mudanças na saúde dos crawlers.</p>
+        </div>
+        <label className="config-alternar">
+          <input
+            type="checkbox"
+            checked={configuracao.notificacoesTelegramLigadas}
+            onChange={(e) => aoAlterar('notificacoesTelegramLigadas', e.target.checked)}
+          />
+          <span>{configuracao.notificacoesTelegramLigadas ? 'ligadas' : 'desligadas'}</span>
+        </label>
+      </div>
+      <div className="config-telegram-campos">
+        <label className="admin-campo">
+          <span>token do bot</span>
+          <input
+            type="password"
+            value={configuracao.telegramToken ?? ''}
+            placeholder={configuracao.telegramTokenPreenchido ? 'token já configurado' : 'informe o token'}
+            autoComplete="new-password"
+            onChange={(e) => aoAlterar('telegramToken', e.target.value)}
+          />
+          <small>{configuracao.telegramTokenPreenchido ? 'O token salvo nunca é exibido.' : 'Nenhum token salvo.'}</small>
+        </label>
+        <label className="admin-campo">
+          <span>chat id</span>
+          <input
+            type="text"
+            value={configuracao.telegramChatId}
+            placeholder="ex.: 123456789"
+            onChange={(e) => aoAlterar('telegramChatId', e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="admin-botao"
+          disabled={testando || pendente || !podeTestar}
+          aria-busy={testando}
+          title={pendente ? 'Salve as alterações antes de testar' : undefined}
+          onClick={testar}
+        >
+          {testando ? 'enviando...' : 'enviar teste'}
+        </button>
+      </div>
+      {mensagem && (
+        <p className={`admin-mensagem admin-mensagem-${mensagem.tipo}`} role="status">
+          {mensagem.texto}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
   const [configuracao, setConfiguracao] = useState(null)
   // Cópia do que está salvo no servidor, para saber se há alterações pendentes.
@@ -327,6 +403,13 @@ export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
           </label>
         </div>
       </section>
+
+      <Notificacoes
+        configuracao={configuracao}
+        pendente={pendente}
+        aoAlterar={alterar}
+        aoExpirar={aoExpirar}
+      />
 
       <div className="config-fontes">
         <SecaoFonte

@@ -233,7 +233,10 @@ Feito: `DescarteService` registra os descartes dos seis crawlers (link + motivo 
 - `POST /api/admin/notificacoes/testar` envia uma mensagem de teste.
 - Cliente HTTP do Telegram isolado; nos testes, cliente falso (sem rede).
 
-## 14. [ ] Frontend admin: descartes, métricas e notificações
+## 14. [x] Frontend admin: descartes, métricas e notificações
+
+> Feito: telas responsivas de descartes e métricas com filtros, contagens e gráficos em CSS/SVG;
+> configuração do Telegram ganhou credenciais, liga/desliga e envio de teste, com helpers testados.
 
 - Tela de descartes com filtros e contagem por motivo.
 - Tela de métricas com números e gráficos simples em SVG/CSS (sem biblioteca), legíveis nos dois temas.

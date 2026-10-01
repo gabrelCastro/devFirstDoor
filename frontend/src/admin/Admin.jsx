@@ -9,12 +9,16 @@ import Painel from './Painel'
 import Historico from './Historico'
 import Configuracao from './Configuracao'
 import Vagas from './Vagas'
+import Descartes from './Descartes'
+import Metricas from './Metricas'
 
 const TELAS = [
   { id: 'painel', rotulo: 'painel' },
   { id: 'historico', rotulo: 'histórico' },
   { id: 'configuracao', rotulo: 'configuração' },
   { id: 'vagas', rotulo: 'vagas' },
+  { id: 'descartes', rotulo: 'descartes' },
+  { id: 'metricas', rotulo: 'métricas' },
 ]
 
 export default function Admin() {
@@ -134,6 +138,8 @@ export default function Admin() {
             {tela === 'historico' && <Historico aoExpirar={expirar} />}
             {tela === 'configuracao' && <Configuracao aoExpirar={expirar} aoMudarPendencia={setConfigPendente} />}
             {tela === 'vagas' && <Vagas aoExpirar={expirar} />}
+            {tela === 'descartes' && <Descartes aoExpirar={expirar} />}
+            {tela === 'metricas' && <Metricas aoExpirar={expirar} />}
           </main>
         </>
       )}
