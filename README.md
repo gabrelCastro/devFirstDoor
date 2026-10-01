@@ -34,8 +34,7 @@ Variáveis do `.env`:
 
 Assim que o backend sobe, uma coleta roda em segundo plano (`ColetaInicialRunner`), então o banco
 já fica populado sem passo manual. Depois disso a coleta se repete a cada `app.crawler.intervalo`
-(padrão 6h). Também dá para disparar uma coleta na hora com `POST /api/admin/coletas`; se já houver
-uma coleta rodando, a nova é ignorada.
+(padrão 6h). A área administrativa permite disparar uma coleta na hora e acompanhar o andamento.
 
 Fora do Docker, o backend usa H2 em arquivo (`backend/data/`) e o frontend pode rodar com
 `npm run dev`, que repassa `/api` para `http://localhost:8080` (ou `VITE_API_PROXY_TARGET`).
@@ -60,8 +59,9 @@ Greenhouse e Lever não têm busca entre empresas: é preciso listar os boards. 
 ### LinkedIn (`LINKEDIN_ENABLED`)
 
 O `robots.txt` do LinkedIn proíbe os caminhos da busca de vagas, e este crawler **não o consulta**.
-Por isso ele só é registrado com `LINKEDIN_ENABLED=true` (`app.crawler.linkedin.enabled`): é uma
-escolha explícita, para **uso pessoal e em baixo volume**. Para reduzir as requisições:
+Por isso `LINKEDIN_ENABLED=true` (`app.crawler.linkedin.enabled`) é a chave-mestra: sem ela, nem o
+painel administrativo pode ligar a fonte. É uma escolha explícita, para **uso pessoal e em baixo
+volume**. Para reduzir as requisições:
 
 - pausa de 3s + até 2s aleatórios entre requisições, e no máximo 3 páginas por termo;
 - vagas já salvas e vagas já lidas sem Java não têm a descrição lida de novo;
@@ -88,17 +88,87 @@ Depois disso:
 - **Deduplicação**: vagas com o mesmo título + empresa + fonte (hash) são descartadas; as que
   reaparecem só têm a data da última visita atualizada.
 - **Expiração**: vagas que não reaparecem numa coleta bem-sucedida da fonte há mais de
-  `app.crawler.dias-para-expirar` dias (padrão 7) são removidas. Uma fonte fora do ar não expira
-  as vagas dela.
+  `app.crawler.dias-para-expirar` dias (padrão 7) recebem o status `EXPIRADA` e deixam a API
+  pública. Se reaparecerem, voltam a `ATIVA`. Uma fonte fora do ar não expira as vagas dela.
+
+## Área administrativa
+
+O painel fica em <http://localhost:3000/admin>. Ele usa HTTP Basic sem sessão no backend; no
+frontend, a credencial fica somente no `sessionStorage` da aba e acompanha cada requisição a
+`/api/admin/**`.
+
+Para habilitar, defina no `.env` e recrie o backend:
+
+```dotenv
+ADMIN_USER=admin
+ADMIN_PASSWORD=uma_senha_forte
+```
+
+`ADMIN_USER` tem o padrão `admin`, mas **não existe senha padrão**. Se `ADMIN_PASSWORD` estiver
+ausente ou em branco, toda a API administrativa responde `401 Unauthorized` e o painel permanece
+desligado. Isso não fecha a API pública de vagas.
+
+### Telas
+
+- **Painel**: mostra saúde, progresso, última execução e próxima coleta de cada crawler. Permite
+  coletar todas as fontes ou apenas uma e pausar ou retomar o agendamento. Os disparos rodam em
+  segundo plano; uma coleta concorrente é recusada.
+- **Histórico**: lista as execuções iniciais, agendadas e manuais, com duração, status e totais, e
+  abre o resultado individual de cada fonte.
+- **Configuração**: liga fontes, edita os termos da Gupy e do LinkedIn, os boards do Greenhouse e
+  do Lever, o intervalo agendado, a expiração e as pausas do LinkedIn. Também testa boards antes de
+  salvá-los e configura o Telegram. As alterações persistidas valem para a coleta seguinte.
+- **Vagas**: filtra por status, fonte e texto; corrige nível e modalidade, oculta ou reativa vagas,
+  reclassifica todas preservando correções manuais e resolve duplicatas entre fontes.
+- **Descartes**: consulta os descartes dos últimos 30 dias por fonte, motivo ou texto e mostra a
+  contagem por motivo.
+- **Métricas**: resume vagas ativas por fonte, nível e modalidade, novas nos últimos 30 dias,
+  exclusivas por fonte, tempo médio no ar e descartes dos últimos 7 dias.
+
+### Notificações pelo Telegram
+
+Na tela **Configuração**, informe o token do bot e o chat id, salve e use **enviar teste**. Só
+depois ligue as notificações. O teste exige token e chat id salvos, mas não exige que as
+notificações estejam ligadas. Quando ativas, elas avisam sobre vagas novas e sobre mudanças da
+saúde de um crawler para `FALHA`/`ALERTA` ou de volta para `OK`.
+
+O token salvo nunca é devolvido pela API: o painel informa apenas se ele está preenchido. Deixar o
+campo do token sem alteração preserva o valor existente; para removê-lo, salve o campo vazio com
+as notificações desligadas.
+
+### API administrativa
+
+Todos os endpoints abaixo exigem `ADMIN_USER` e `ADMIN_PASSWORD` via HTTP Basic.
+
+| Método e rota | Uso |
+|---|---|
+| `GET /api/admin/me` | Valida a credencial e devolve o usuário autenticado. |
+| `GET /api/admin/crawlers` | Estado ao vivo, saúde e próxima coleta de todas as fontes. |
+| `POST /api/admin/coletas` | Dispara todas as fontes em segundo plano (`202`; `409` se já houver coleta). |
+| `POST /api/admin/coletas/{fonte}` | Dispara uma fonte (`202`, `404` se inexistente, `409` se desligada ou ocupada). |
+| `POST /api/admin/agendamento/pausar` | Pausa as próximas coletas agendadas. |
+| `POST /api/admin/agendamento/retomar` | Retoma as coletas agendadas. |
+| `GET /api/admin/execucoes` | Histórico paginado, mais recente primeiro, com resultados por fonte. |
+| `GET /api/admin/configuracao` | Lê a configuração persistida e os padrões ainda não substituídos. |
+| `PUT /api/admin/configuracao` | Substitui a configuração editável; intervalo mínimo de 30 minutos. |
+| `POST /api/admin/boards/testar` | Testa sem salvar um board; `ats` aceita `GREENHOUSE` ou `LEVER`, além de `empresa`. |
+| `POST /api/admin/notificacoes/testar` | Envia a mensagem de teste do Telegram. |
+| `GET /api/admin/vagas` | Lista paginada; aceita `status`, `fonte`, `busca`, `page` e `size`. |
+| `PATCH /api/admin/vagas/{id}` | Altera `status`, `nivel` e/ou `remoto`. |
+| `POST /api/admin/vagas/reclassificar` | Recalcula os campos derivados, preservando correções manuais. |
+| `GET /api/admin/vagas/duplicatas` | Lista vagas ativas equivalentes encontradas em fontes diferentes. |
+| `POST /api/admin/vagas/duplicatas/resolver` | Mantém `vagaMantidaId` e oculta as demais do grupo. |
+| `GET /api/admin/descartes` | Lista paginada e contagens; aceita `fonte`, `motivo`, `busca`, `page` e `size`. |
+| `GET /api/admin/metricas` | Devolve os agregados exibidos na tela de métricas. |
 
 ## API
 
 - `GET /api/vagas?secao=TODAS|REMOTO|ESTAGIO&escopo=TODAS|NACIONAL|GRINGA&q=...&page=0&size=20`:
   lista paginada. `q` busca em título, empresa e local, sem diferenciar maiúsculas nem acentos.
 - `GET /api/vagas/contagens` (mesmos filtros): total, fontes e contagem de cada aba.
-- `POST /api/admin/coletas` (exige login admin via HTTP Basic, com `ADMIN_USER`/`ADMIN_PASSWORD`;
-  sem `ADMIN_PASSWORD` responde 401): roda uma coleta agora e devolve quantas vagas novas cada fonte
-  salvou (`-1` para a fonte que falhou).
+
+Os endpoints administrativos estão documentados na seção anterior; a API pública continua
+acessível sem credencial.
 
 ## Testes
 
@@ -118,7 +188,7 @@ banco é H2 em memória. A coleta no startup e a agendada ficam desligadas em
 | `app.crawler.run-on-startup` | `true` | Coleta assim que o backend sobe |
 | `app.crawler.agendamento.enabled` | `true` | Liga a coleta periódica |
 | `app.crawler.intervalo` | `6h` | Intervalo entre coletas agendadas (ex: `30m`, `PT6H`) |
-| `app.crawler.dias-para-expirar` | `7` | Dias sem ser vista até a vaga ser removida |
+| `app.crawler.dias-para-expirar` | `7` | Dias sem ser vista até a vaga receber o status `EXPIRADA` |
 | `app.crawler.gupy.page-size` | `100` | Vagas por página na API da Gupy |
 | `app.crawler.gupy.max-paginas-por-termo` | `5` | Limite de páginas por termo de busca |
 | `app.crawler.gupy.request-delay-ms` | `1000` | Pausa entre requisições à Gupy |

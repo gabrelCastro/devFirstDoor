@@ -243,7 +243,11 @@ Feito: `DescarteService` registra os descartes dos seis crawlers (link + motivo 
 - Configuração de notificações (dentro da tela de configuração) com botão "enviar teste".
 - `npm run lint && npm run build` passando.
 
-## 15. [ ] README da área administrativa
+## 15. [x] README da área administrativa
+
+> Feito: README documenta habilitação e segurança do admin, função de cada tela, configuração do
+> Telegram e todos os endpoints `/api/admin/**`, além de alinhar coleta, LinkedIn e expiração ao
+> comportamento atual.
 
 - Como habilitar (`ADMIN_USER`/`ADMIN_PASSWORD`), o que cada tela faz, endpoints `/api/admin/**`,
   configuração do Telegram, e o aviso de que sem senha a área admin fica desligada. Baseie tudo no
