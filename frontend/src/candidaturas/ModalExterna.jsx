@@ -44,9 +44,13 @@ export default function ModalExterna({ aoCriar, aoFechar }) {
   }
 
   return (
-    <Dialogo titulo="$ nova candidatura externa" aoFechar={aoFechar} className="dialogo-largo">
+    <Dialogo
+      titulo="Nova candidatura externa"
+      subtitulo="Para vagas que você encontrou fora do Dev First Door."
+      aoFechar={aoFechar}
+      className="dialogo-largo"
+    >
       <form className="formulario" onSubmit={enviar} noValidate>
-        <p className="formulario-nota">Para vagas que você encontrou fora do Dev First Door.</p>
         <label className="campo">
           <span>vaga *</span>
           <input type="text" maxLength={255} value={dados.titulo} onChange={(e) => alterar('titulo', e.target.value)} />

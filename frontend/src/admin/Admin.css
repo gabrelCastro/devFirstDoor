@@ -134,8 +134,11 @@
   font-weight: 600;
 }
 
+/* Escurece no hover: ficar transparente parecia um botão desabilitado. */
 .admin-botao-primario:hover:not(:disabled) {
-  background: transparent;
+  border-color: color-mix(in srgb, var(--acento) 82%, var(--tinta));
+  background: color-mix(in srgb, var(--acento) 82%, var(--tinta));
+  color: var(--acento-contraste);
 }
 
 .admin-botao-primario:disabled {
@@ -162,24 +165,40 @@
   background: var(--alerta-fraco);
 }
 
-/* Login */
+/* Login (o formulário vem de conta/FormularioEntrar, com os estilos de conta.css) */
 
 .admin-login {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 360px;
-  margin: 48px auto 0;
-  padding: 28px 24px;
-  border: 1px dashed var(--regua-forte);
+  gap: 20px;
+  max-width: 400px;
+  margin: 56px auto 0;
+  padding: 28px 26px;
+  border: 1px solid var(--regua-forte);
+  border-top: 3px solid var(--acento);
   border-radius: var(--radius);
   background: var(--papel);
+  box-shadow: 0 20px 50px -34px rgba(5, 15, 25, 0.5);
+}
+
+.admin-login-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--acento);
 }
 
 .admin-login-titulo {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--acento);
+  margin-top: 8px;
+  font-family: var(--serif);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.admin-login-subtitulo {
+  margin-top: 6px;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--tinta-fraca);
 }
 
 .admin-campo {
@@ -207,10 +226,6 @@
 
 .admin-campo input:focus {
   border-bottom-color: var(--acento);
-}
-
-.admin-login .admin-mensagem {
-  margin: 0;
 }
 
 /* Barra de status + ações */
