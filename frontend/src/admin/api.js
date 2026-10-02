@@ -8,6 +8,14 @@ export class ErroNaoAutenticado extends Error {
   }
 }
 
+/** Credencial válida, mas de uma conta sem o papel ADMIN (403). */
+export class ErroSemPermissao extends Error {
+  constructor() {
+    super('esta conta não tem acesso à área administrativa')
+    this.name = 'ErroSemPermissao'
+  }
+}
+
 /** Codifica em base64 passando por UTF-8, porque o btoa sozinho quebra com acentos. */
 function base64(texto) {
   const bytes = new TextEncoder().encode(texto)
@@ -47,7 +55,8 @@ export function apagarCredencial() {
 
 /**
  * Chama um endpoint de /api/admin. Devolve o JSON da resposta; 401 vira
- * {@link ErroNaoAutenticado} e os demais erros trazem a `mensagem` do backend, quando houver.
+ * {@link ErroNaoAutenticado}, 403 (conta sem papel ADMIN) vira {@link ErroSemPermissao} e os
+ * demais erros trazem a `mensagem` do backend, quando houver.
  */
 export async function chamarAdmin(
   caminho,
@@ -62,6 +71,9 @@ export async function chamarAdmin(
   })
   if (resposta.status === 401) {
     throw new ErroNaoAutenticado()
+  }
+  if (resposta.status === 403) {
+    throw new ErroSemPermissao()
   }
   const respostaCorpo = await resposta.json().catch(() => null)
   if (!resposta.ok) {

@@ -7,7 +7,10 @@ public class AdminProperties {
 
     private String usuario = "admin";
 
-    /** Sem senha (o padrão), a área administrativa fica desligada: não existe senha padrão. */
+    /**
+     * Senha do admin criado/sincronizado no banco ao subir. Sem senha (o padrão) nenhum admin é
+     * criado a partir da configuração: não existe senha padrão.
+     */
     private String senha = "";
 
     public boolean isHabilitado() {

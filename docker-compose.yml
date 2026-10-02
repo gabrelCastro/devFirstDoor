@@ -31,6 +31,7 @@ services:
       LINKEDIN_ENABLED: ${LINKEDIN_ENABLED:-false}
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      CADASTRO_ABERTO: ${CADASTRO_ABERTO:-true}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

@@ -30,7 +30,8 @@ Variáveis do `.env`:
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Banco PostgreSQL do Compose |
 | `BACKEND_PORT`, `FRONTEND_PORT` | Portas expostas no host (8080 e 3000) |
 | `LINKEDIN_ENABLED` | Liga o crawler do LinkedIn (padrão `false`; veja abaixo) |
-| `ADMIN_USER`, `ADMIN_PASSWORD` | Login da área administrativa; sem senha ela fica desligada |
+| `ADMIN_USER`, `ADMIN_PASSWORD` | Conta admin criada no banco ao subir; sem senha nenhum admin é criado |
+| `CADASTRO_ABERTO` | Permite o cadastro público de contas comuns (padrão `true`) |
 
 Assim que o backend sobe, uma coleta roda em segundo plano (`ColetaInicialRunner`), então o banco
 já fica populado sem passo manual. Depois disso a coleta se repete a cada `app.crawler.intervalo`
@@ -91,22 +92,43 @@ Depois disso:
   `app.crawler.dias-para-expirar` dias (padrão 7) recebem o status `EXPIRADA` e deixam a API
   pública. Se reaparecerem, voltam a `ATIVA`. Uma fonte fora do ar não expira as vagas dela.
 
+## Contas e papéis
+
+As contas ficam na tabela `usuario`, com a senha em hash BCrypt, e têm um de dois papéis:
+
+- **`USUARIO`**: conta comum, criada pelo cadastro público. Por enquanto só acessa `/api/conta`.
+- **`ADMIN`**: acessa também a área administrativa e `/api/admin/**`.
+
+A autenticação usa Spring Security com HTTP Basic sem sessão: o cliente manda o header
+`Authorization` em toda requisição. O login não diferencia maiúsculas. Uma conta comum que chama
+`/api/admin/**` recebe `403`; credencial ausente, errada ou de conta desativada recebe `401`.
+
+Ao subir, o backend cria ou sincroniza a conta de `ADMIN_USER`/`ADMIN_PASSWORD` (ativa, papel
+`ADMIN` e a senha do `.env`). O `.env` é a fonte da verdade dessa conta: trocar a senha pela API ou
+rebaixá-la no painel dura só até o próximo restart. Sem `ADMIN_PASSWORD` nenhuma conta é criada a
+partir da configuração, mas contas `ADMIN` que já existem no banco continuam valendo.
+
+| Método e rota | Acesso | Uso |
+|---|---|---|
+| `POST /api/conta` | público | Cadastra `usuario` (3 a 40 caracteres: letras, números, `.`, `_`, `-`) e `senha` (8 a 72); sempre com papel `USUARIO`. `409` se o login já existir, `403` com `CADASTRO_ABERTO=false`. |
+| `GET /api/conta` | qualquer conta | Devolve `id`, `usuario`, `papel`, `ativo` e `criadoEm`. |
+| `PUT /api/conta/senha` | qualquer conta | Troca a senha; exige `senhaAtual` e `novaSenha`. |
+
 ## Área administrativa
 
-O painel fica em <http://localhost:3000/admin>. Ele usa HTTP Basic sem sessão no backend; no
+O painel fica em <http://localhost:3000/admin> e aceita qualquer conta com papel `ADMIN`. No
 frontend, a credencial fica somente no `sessionStorage` da aba e acompanha cada requisição a
 `/api/admin/**`.
 
-Para habilitar, defina no `.env` e recrie o backend:
+Para criar o primeiro admin, defina no `.env` e recrie o backend:
 
 ```dotenv
 ADMIN_USER=admin
 ADMIN_PASSWORD=uma_senha_forte
 ```
 
-`ADMIN_USER` tem o padrão `admin`, mas **não existe senha padrão**. Se `ADMIN_PASSWORD` estiver
-ausente ou em branco, toda a API administrativa responde `401 Unauthorized` e o painel permanece
-desligado. Isso não fecha a API pública de vagas.
+`ADMIN_USER` tem o padrão `admin`, mas **não existe senha padrão**. Depois disso, outros admins
+podem ser promovidos na tela **Usuários**. A API pública de vagas não exige login.
 
 ### Telas
 
@@ -124,6 +146,8 @@ desligado. Isso não fecha a API pública de vagas.
   contagem por motivo.
 - **Métricas**: resume vagas ativas por fonte, nível e modalidade, novas nos últimos 30 dias,
   exclusivas por fonte, tempo médio no ar e descartes dos últimos 7 dias.
+- **Usuários**: lista as contas, promove ou rebaixa entre `USUARIO` e `ADMIN` e desativa ou
+  reativa contas. A própria conta não pode ser alterada, então sempre resta um admin ativo.
 
 ### Notificações pelo Telegram
 
@@ -138,7 +162,7 @@ as notificações desligadas.
 
 ### API administrativa
 
-Todos os endpoints abaixo exigem `ADMIN_USER` e `ADMIN_PASSWORD` via HTTP Basic.
+Todos os endpoints abaixo exigem, via HTTP Basic, uma conta ativa com papel `ADMIN`.
 
 | Método e rota | Uso |
 |---|---|
@@ -160,6 +184,8 @@ Todos os endpoints abaixo exigem `ADMIN_USER` e `ADMIN_PASSWORD` via HTTP Basic.
 | `POST /api/admin/vagas/duplicatas/resolver` | Mantém `vagaMantidaId` e oculta as demais do grupo. |
 | `GET /api/admin/descartes` | Lista paginada e contagens; aceita `fonte`, `motivo`, `busca`, `page` e `size`. |
 | `GET /api/admin/metricas` | Devolve os agregados exibidos na tela de métricas. |
+| `GET /api/admin/usuarios` | Lista paginada das contas, em ordem de login; nunca inclui o hash da senha. |
+| `PATCH /api/admin/usuarios/{id}` | Altera `papel` e/ou `ativo` de outra conta (`400` para a própria). |
 
 ## API
 

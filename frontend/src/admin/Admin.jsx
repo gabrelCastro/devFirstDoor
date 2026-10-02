@@ -3,7 +3,7 @@ import '../App.css'
 import './Admin.css'
 import { useTema } from '../tema'
 import { IconeLua, IconeSol } from '../icons'
-import { ErroNaoAutenticado, apagarCredencial, chamarAdmin, lerCredencial } from './api'
+import { ErroNaoAutenticado, ErroSemPermissao, apagarCredencial, chamarAdmin, lerCredencial } from './api'
 import Login from './Login'
 import Painel from './Painel'
 import Historico from './Historico'
@@ -11,6 +11,7 @@ import Configuracao from './Configuracao'
 import Vagas from './Vagas'
 import Descartes from './Descartes'
 import Metricas from './Metricas'
+import Usuarios from './Usuarios'
 
 const TELAS = [
   { id: 'painel', rotulo: 'painel' },
@@ -19,6 +20,7 @@ const TELAS = [
   { id: 'vagas', rotulo: 'vagas' },
   { id: 'descartes', rotulo: 'descartes' },
   { id: 'metricas', rotulo: 'métricas' },
+  { id: 'usuarios', rotulo: 'usuários' },
 ]
 
 export default function Admin() {
@@ -49,7 +51,7 @@ export default function Admin() {
       })
       .catch((e) => {
         if (cancelado) return
-        if (e instanceof ErroNaoAutenticado) apagarCredencial()
+        if (e instanceof ErroNaoAutenticado || e instanceof ErroSemPermissao) apagarCredencial()
         else setAvisoLogin(e.message)
       })
       .finally(() => {
@@ -140,6 +142,7 @@ export default function Admin() {
             {tela === 'vagas' && <Vagas aoExpirar={expirar} />}
             {tela === 'descartes' && <Descartes aoExpirar={expirar} />}
             {tela === 'metricas' && <Metricas aoExpirar={expirar} />}
+            {tela === 'usuarios' && <Usuarios usuarioAtual={usuario} aoExpirar={expirar} />}
           </main>
         </>
       )}

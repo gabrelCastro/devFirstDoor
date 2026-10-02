@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ErroNaoAutenticado, chamarAdmin } from './api.js'
+import { ErroNaoAutenticado, ErroSemPermissao, chamarAdmin } from './api.js'
 
 test('envia corpo JSON com a credencial administrativa', async (t) => {
   const fetchOriginal = globalThis.fetch
@@ -60,4 +60,14 @@ test('transforma resposta 401 em erro de autenticação', async (t) => {
     chamarAdmin('/vagas', { credencial: 'Basic expirada' }),
     ErroNaoAutenticado,
   )
+})
+
+test('conta sem papel ADMIN vira ErroSemPermissao', async (t) => {
+  const fetchOriginal = globalThis.fetch
+  t.after(() => {
+    globalThis.fetch = fetchOriginal
+  })
+  globalThis.fetch = async () => new Response(null, { status: 403 })
+
+  await assert.rejects(chamarAdmin('/me', { credencial: 'Basic teste' }), ErroSemPermissao)
 })

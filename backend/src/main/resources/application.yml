@@ -16,10 +16,13 @@ spring:
       path: /h2-console
 
 app:
-  # Área administrativa (/api/admin/**). Sem senha definida ela fica desligada: tudo responde 401.
+  # Admin criado/sincronizado no banco ao subir (papel ADMIN). Sem senha, nenhum admin é criado.
   admin:
     usuario: ${ADMIN_USER:admin}
     senha: ${ADMIN_PASSWORD:}
+  usuarios:
+    # POST /api/conta cria contas com o papel USUARIO. false recusa novos cadastros (403).
+    cadastro-aberto: ${CADASTRO_ABERTO:true}
   notificacoes:
     telegram:
       ligadas: false

@@ -11,7 +11,7 @@ import static com.devfirstdoor.controller.AdminControllerTest.basic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Sem {@code ADMIN_PASSWORD} a área admin fica desligada: não existe senha padrão. */
+/** Sem {@code ADMIN_PASSWORD} nenhum admin é criado: não existe senha padrão. */
 @SpringBootTest(properties = {"app.admin.usuario=admin", "app.admin.senha="})
 @AutoConfigureMockMvc
 class AdminDesligadoTest {

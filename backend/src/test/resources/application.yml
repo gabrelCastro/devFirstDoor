@@ -1,6 +1,8 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:dev-first-door-test;DB_CLOSE_DELAY=-1
+    # Um banco por contexto de teste: as contas criadas no startup de um contexto (ex.: o admin)
+    # não podem sumir quando outro contexto recria o schema.
+    url: jdbc:h2:mem:dev-first-door-test-${random.uuid};DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password: ""

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ErroNaoAutenticado, chamarAdmin, montarCredencial, salvarCredencial } from './api'
+import { ErroNaoAutenticado, ErroSemPermissao, chamarAdmin, montarCredencial, salvarCredencial } from './api'
 
 export default function Login({ aoEntrar, aviso }) {
   const [usuario, setUsuario] = useState('')
@@ -18,11 +18,9 @@ export default function Login({ aoEntrar, aviso }) {
       setSenha('')
       aoEntrar(dados.usuario)
     } catch (e) {
-      setErro(
-        e instanceof ErroNaoAutenticado
-          ? 'Usuário ou senha incorretos (ou a área admin está desligada no servidor).'
-          : e.message,
-      )
+      if (e instanceof ErroNaoAutenticado) setErro('Usuário ou senha incorretos, ou conta desativada.')
+      else if (e instanceof ErroSemPermissao) setErro('Esta conta não tem acesso à área administrativa.')
+      else setErro(e.message)
     } finally {
       setEnviando(false)
     }
