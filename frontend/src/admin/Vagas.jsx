@@ -408,6 +408,7 @@ export default function Vagas({ aoExpirar }) {
         <button
           type="button"
           className={`aba ${visao === 'lista' ? 'aba-ativa' : ''}`}
+          aria-pressed={visao === 'lista'}
           onClick={() => setVisao('lista')}
         >
           todas as vagas
@@ -415,6 +416,7 @@ export default function Vagas({ aoExpirar }) {
         <button
           type="button"
           className={`aba ${visao === 'duplicatas' ? 'aba-ativa' : ''}`}
+          aria-pressed={visao === 'duplicatas'}
           onClick={() => setVisao('duplicatas')}
         >
           duplicatas

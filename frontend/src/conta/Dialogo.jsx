@@ -1,33 +1,12 @@
-import { useEffect, useRef } from 'react'
 import { IconeLimpar } from '../icons'
+import { useDialogoModal } from './useDialogoModal'
 
-/**
- * Modal nativo ({@code <dialog>}): foco preso, Esc fecha e o resto da página fica inerte.
- * Clicar fora (no fundo) também fecha.
- */
+/** Modal nativo ({@code <dialog>}): foco preso, Esc fecha e o resto da página fica inerte. */
 export default function Dialogo({ titulo, aoFechar, children, className = '' }) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const dialogo = ref.current
-    if (dialogo && !dialogo.open) dialogo.showModal()
-  }, [])
-
-  function aoClicar(evento) {
-    if (evento.target === ref.current) aoFechar()
-  }
+  const propsDialogo = useDialogoModal(aoFechar)
 
   return (
-    <dialog
-      ref={ref}
-      className={`dialogo ${className}`}
-      aria-label={titulo}
-      onCancel={(evento) => {
-        evento.preventDefault()
-        aoFechar()
-      }}
-      onClick={aoClicar}
-    >
+    <dialog {...propsDialogo} className={`dialogo ${className}`} aria-label={titulo}>
       <div className="dialogo-caixa">
         <header className="dialogo-cabecalho">
           <p className="dialogo-titulo">{titulo}</p>

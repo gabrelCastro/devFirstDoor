@@ -38,7 +38,7 @@ export default function ModalSenha({ aoFechar }) {
       {concluido ? (
         <div className="formulario">
           <p className="mensagem">Senha trocada. Os outros aparelhos em que você estava logado foram desconectados.</p>
-          <button type="button" className="botao botao-primario" onClick={aoFechar} autoFocus>
+          <button type="button" className="botao botao-primario" onClick={aoFechar}>
             fechar
           </button>
         </div>
@@ -52,7 +52,7 @@ export default function ModalSenha({ aoFechar }) {
               value={atual}
               onChange={(e) => setAtual(e.target.value)}
               required
-              autoFocus
+             
             />
           </label>
           <label className="campo">

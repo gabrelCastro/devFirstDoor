@@ -189,9 +189,11 @@ function Quadros() {
     atualizarUrl(null)
   }
 
-  /** Atualização otimista: o cartão muda de coluna na hora e volta se o servidor recusar. */
+  /**
+   * Atualização otimista: o cartão muda de coluna na hora e volta se o servidor recusar. A volta
+   * desfaz só este cartão, sem atropelar outra mudança feita enquanto a requisição corria.
+   */
   async function mover(candidatura, etapa) {
-    const anterior = candidaturas
     setCandidaturas((atuais) => moverLocalmente(atuais, candidatura.id, etapa))
     setMovendo(candidatura.id)
     try {
@@ -201,7 +203,7 @@ function Quadros() {
       if (abertaId === candidatura.id) setVersaoPainel((v) => v + 1)
       recarregarResumo()
     } catch (e) {
-      setCandidaturas(anterior)
+      setCandidaturas((atuais) => substituir(atuais, candidatura))
       tratarErro(e)
     } finally {
       setMovendo(null)

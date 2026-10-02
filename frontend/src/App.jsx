@@ -17,7 +17,7 @@ import {
 } from './icons'
 import MenuConta from './conta/MenuConta'
 import { useSessao } from './conta/useSessao'
-import { chamarApi } from './conta/sessao'
+import { ErroNaoAutenticado, chamarApi } from './conta/sessao'
 import { ROTULO_ETAPA, mapaPorVaga } from './candidaturas/candidaturasDados'
 
 const TAMANHO_PAGINA = 30
@@ -151,25 +151,47 @@ export default function App() {
   const [secaoFiltro, setSecaoFiltro] = useState('TODAS')
   const [escopoFiltro, setEscopoFiltro] = useState('TODAS')
   const { usuario, pedirLogin } = useSessao()
-  // vagaId → { id, etapa } das vagas que o usuário logado já acompanha.
-  const [acompanhadas, setAcompanhadas] = useState(() => new Map())
+  // vagaId → { id, etapa } das vagas que o usuário logado já acompanha. Guarda também de quem é
+  // a marcação, para não misturar as vagas de duas contas depois de trocar de login.
+  const [acompanhadas, setAcompanhadas] = useState(() => ({ dono: null, mapa: new Map() }))
   const [salvandoVaga, setSalvandoVaga] = useState(null)
   const [aviso, setAviso] = useState(null)
 
-  const recarregarAcompanhadas = useCallback(async () => {
-    try {
-      setAcompanhadas(mapaPorVaga(await chamarApi('/api/candidaturas')))
-    } catch {
-      // sem a marcação a lista continua utilizável; o botão volta a funcionar no próximo login
-    }
+  /**
+   * Junta a lista do servidor com o que esta página marcou enquanto ela carregava: logo depois do
+   * login, a vaga salva pelo modal pode chegar antes da lista e não pode ser apagada por ela.
+   */
+  const aplicarLista = useCallback((dono, lista) => {
+    setAcompanhadas((atual) => ({
+      dono,
+      mapa: new Map([...mapaPorVaga(lista), ...(atual.dono === dono ? atual.mapa : [])]),
+    }))
   }, [])
+
+  const marcar = useCallback((dono, vagaId, marcacao) => {
+    setAcompanhadas((atual) => ({
+      dono,
+      mapa: new Map(atual.dono === dono ? atual.mapa : []).set(vagaId, marcacao),
+    }))
+  }, [])
+
+  const recarregarAcompanhadas = useCallback(
+    async (dono) => {
+      try {
+        aplicarLista(dono, await chamarApi('/api/candidaturas'))
+      } catch {
+        // sem a marcação a lista continua utilizável
+      }
+    },
+    [aplicarLista],
+  )
 
   useEffect(() => {
     if (!usuario) return
     let cancelado = false
     chamarApi('/api/candidaturas')
       .then((lista) => {
-        if (!cancelado) setAcompanhadas(mapaPorVaga(lista))
+        if (!cancelado) aplicarLista(usuario.id, lista)
       })
       .catch(() => {
         // sem a marcação a lista continua utilizável
@@ -177,9 +199,9 @@ export default function App() {
     return () => {
       cancelado = true
     }
-  }, [usuario])
-  // Depois do logout a marcação some sem precisar limpar o estado.
-  const marcadas = usuario ? acompanhadas : SEM_MARCACAO
+  }, [usuario, aplicarLista])
+  // Depois do logout (ou com outra conta) a marcação antiga some sem precisar limpar o estado.
+  const marcadas = usuario && acompanhadas.dono === usuario.id ? acompanhadas.mapa : SEM_MARCACAO
 
   useEffect(() => {
     if (!aviso) return
@@ -187,16 +209,26 @@ export default function App() {
     return () => clearTimeout(temporizador)
   }, [aviso])
 
-  async function salvarVaga(vaga) {
+  /** {@code conta} vem do login quando a ação foi pedida antes dele (o {@code usuario} ainda é nulo). */
+  async function salvarVaga(vaga, conta = usuario) {
     setSalvandoVaga(vaga.id)
     try {
       const { candidatura } = await chamarApi('/api/candidaturas', { method: 'POST', corpo: { vagaId: vaga.id } })
-      setAcompanhadas((atuais) => new Map(atuais).set(vaga.id, { id: candidatura.id, etapa: candidatura.etapa }))
+      marcar(conta.id, vaga.id, { id: candidatura.id, etapa: candidatura.etapa })
       setAviso({ texto: `"${vaga.titulo}" entrou no seu quadro em interesse.`, id: candidatura.id })
     } catch (e) {
-      // 409: já estava no quadro (ex.: salvo em outra aba). Só atualiza a marcação.
-      if (e.status === 409) await recarregarAcompanhadas()
-      else setAviso({ texto: `Não foi possível acompanhar a vaga: ${e.message}`, erro: true })
+      if (e instanceof ErroNaoAutenticado) {
+        // Sessão expirou: pede o login de novo e salva a vaga em seguida.
+        pedirLogin({
+          motivo: 'Sua sessão expirou. Entre de novo para acompanhar a vaga.',
+          aoEntrar: (novaConta) => salvarVaga(vaga, novaConta),
+        })
+      } else if (e.status === 409) {
+        // Já estava no quadro (ex.: salva em outra aba). Só atualiza a marcação.
+        await recarregarAcompanhadas(conta.id)
+      } else {
+        setAviso({ texto: `Não foi possível acompanhar a vaga: ${e.message}`, erro: true })
+      }
     } finally {
       setSalvandoVaga(null)
     }
@@ -209,7 +241,7 @@ export default function App() {
     }
     pedirLogin({
       motivo: `Entre para acompanhar "${vaga.titulo}" no seu quadro de candidaturas.`,
-      aoEntrar: () => salvarVaga(vaga),
+      aoEntrar: (conta) => salvarVaga(vaga, conta),
     })
   }
 

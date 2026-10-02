@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { IconeLimpar, IconeLixeira, IconeSetaExterna } from '../icons'
 import { ErroNaoAutenticado } from '../conta/sessao'
+import { useDialogoModal } from '../conta/useDialogoModal'
 import {
   adicionarNota,
   apagarNota,
@@ -278,12 +279,7 @@ export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, a
   const [detalhe, setDetalhe] = useState(null)
   const [erro, setErro] = useState(null)
   const [ocupado, setOcupado] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const dialogo = ref.current
-    if (dialogo && !dialogo.open) dialogo.showModal()
-  }, [])
+  const propsDialogo = useDialogoModal(aoFechar)
 
   useEffect(() => {
     let cancelado = false
@@ -329,16 +325,9 @@ export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, a
 
   return (
     <dialog
-      ref={ref}
+      {...propsDialogo}
       className="painel"
       aria-label={candidatura ? `${candidatura.titulo} em ${candidatura.empresa}` : 'Detalhes da candidatura'}
-      onCancel={(evento) => {
-        evento.preventDefault()
-        aoFechar()
-      }}
-      onClick={(evento) => {
-        if (evento.target === ref.current) aoFechar()
-      }}
     >
       <div className="painel-caixa">
         <header className="painel-cabecalho">

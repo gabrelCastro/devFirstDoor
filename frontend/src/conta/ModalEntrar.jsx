@@ -82,7 +82,7 @@ export default function ModalEntrar({ motivo, abaInicial = 'entrar', entrar, cad
             value={usuario}
             onChange={(e) => setUsuario(e.target.value)}
             required
-            autoFocus
+           
           />
         </label>
         <label className="campo">

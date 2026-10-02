@@ -28,25 +28,71 @@ function GraficoBarras({ dados, rotulos = {} }) {
   )
 }
 
+const LARGURA = 600
+const ALTURA = 180
+const MARGEM_X = 20
+const BASE_Y = 150
+const ALTURA_UTIL = 120
+
+function formatarDia(data) {
+  return new Date(`${data}T12:00:00Z`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
+}
+
+/** Linha das vagas novas por dia. Passar o mouse sobre um dia mostra o valor dele no topo. */
 function GraficoNovas({ registros }) {
   const serie = useMemo(() => prepararSerieNovas(registros), [registros])
+  const [ativo, setAtivo] = useState(null)
   const maximo = Math.max(1, ...serie.map((item) => item.total))
-  const pontos = serie.map((item, indice) => {
-    const x = 20 + (indice / (serie.length - 1)) * 560
-    const y = 150 - (item.total / maximo) * 120
-    return `${x},${y}`
-  }).join(' ')
+  const passo = (LARGURA - 2 * MARGEM_X) / (serie.length - 1)
+  const x = (indice) => MARGEM_X + indice * passo
+  const y = (total) => BASE_Y - (total / maximo) * ALTURA_UTIL
+  const pontos = serie.map((item, indice) => `${x(indice)},${y(item.total)}`).join(' ')
   const total = serie.reduce((soma, item) => soma + item.total, 0)
-  const formatarData = (data) => new Date(`${data}T12:00:00Z`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
+  const foco = ativo ?? serie.length - 1
+  const itemFoco = serie[foco]
 
   return (
     <div className="grafico-linha">
-      <svg viewBox="0 0 600 180" role="img" aria-label={`${total} vagas novas nos últimos 30 dias`}>
-        <line x1="20" y1="150" x2="580" y2="150" className="grafico-eixo" />
-        <polygon points={`20,150 ${pontos} 580,150`} className="grafico-area" />
-        <polyline points={pontos} className="grafico-serie" />
-      </svg>
-      <div className="grafico-datas"><span>{formatarData(serie[0].data)}</span><span>{formatarData(serie.at(-1).data)}</span></div>
+      <p className="grafico-linha-foco" aria-live="polite">
+        {formatarDia(itemFoco.data)} · {itemFoco.total} {itemFoco.total === 1 ? 'vaga nova' : 'vagas novas'}
+      </p>
+      <div className="grafico-linha-area" onPointerLeave={() => setAtivo(null)}>
+        <svg
+          viewBox={`0 0 ${LARGURA} ${ALTURA}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`${total} vagas novas nos últimos 30 dias`}
+        >
+          <line x1={MARGEM_X} y1={BASE_Y} x2={LARGURA - MARGEM_X} y2={BASE_Y} className="grafico-eixo" vectorEffect="non-scaling-stroke" />
+          <polygon points={`${MARGEM_X},${BASE_Y} ${pontos} ${LARGURA - MARGEM_X},${BASE_Y}`} className="grafico-area" />
+          <line x1={x(foco)} y1={BASE_Y} x2={x(foco)} y2={y(itemFoco.total)} className="grafico-guia" vectorEffect="non-scaling-stroke" />
+          <polyline points={pontos} className="grafico-serie" vectorEffect="non-scaling-stroke" />
+        </svg>
+        {/* O ponto é HTML para não ser achatado junto com o SVG. */}
+        <span
+          className="grafico-linha-ponto"
+          style={{ left: `${(x(foco) / LARGURA) * 100}%`, top: `${(y(itemFoco.total) / ALTURA) * 100}%` }}
+          aria-hidden="true"
+        />
+        {serie.map((item, indice) => (
+          <span
+            key={item.data}
+            className="grafico-linha-alvo"
+            style={{ left: `${((x(indice) - passo / 2) / LARGURA) * 100}%`, width: `${(passo / LARGURA) * 100}%` }}
+            onPointerEnter={() => setAtivo(indice)}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+      <div className="grafico-datas" aria-hidden="true">
+        <span>{formatarDia(serie[0].data)}</span>
+        <span>{formatarDia(serie.at(-1).data)}</span>
+      </div>
+      <ul className="sr-only">
+        {serie.filter((item) => item.total > 0).map((item) => (
+          <li key={item.data}>{formatarDia(item.data)}: {item.total}</li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -56,7 +102,8 @@ function CartaoNumero({ rotulo, valor, detalhe }) {
     <div className="metrica-numero">
       <span>{rotulo}</span>
       <strong>{valor}</strong>
-      {detalhe && <small>{detalhe}</small>}
+      {/* Sempre presente, para os números ficarem na mesma altura com ou sem detalhe. */}
+      <small>{detalhe ?? '\u00a0'}</small>
     </div>
   )
 }

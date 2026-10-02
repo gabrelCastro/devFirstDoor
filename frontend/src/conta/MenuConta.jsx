@@ -49,8 +49,8 @@ export default function MenuConta({ paginaAtual }) {
       <button
         type="button"
         className="menu-conta-botao"
-        aria-haspopup="true"
         aria-expanded={aberto}
+        aria-controls="menu-conta-lista"
         onClick={() => setAberto((valor) => !valor)}
       >
         <IconeUsuario tamanho={14} />
@@ -58,25 +58,26 @@ export default function MenuConta({ paginaAtual }) {
         <span aria-hidden="true">▾</span>
       </button>
       {aberto && (
-        <div className="menu-conta-lista" role="menu">
+        // Lista simples de links e botões (não role="menu"): navega com Tab, como o resto do site.
+        <div className="menu-conta-lista" id="menu-conta-lista">
           {paginaAtual !== 'candidaturas' && (
-            <a role="menuitem" href="/candidaturas">
+            <a href="/candidaturas">
               minhas candidaturas
             </a>
           )}
           {paginaAtual !== 'vagas' && (
-            <a role="menuitem" href="/">
+            <a href="/">
               vagas
             </a>
           )}
           {usuario.papel === 'ADMIN' && (
-            <a role="menuitem" href="/admin">
+            <a href="/admin">
               área admin
             </a>
           )}
           <button
             type="button"
-            role="menuitem"
+           
             onClick={() => {
               setAberto(false)
               setTrocandoSenha(true)
@@ -84,7 +85,7 @@ export default function MenuConta({ paginaAtual }) {
           >
             trocar senha
           </button>
-          <button type="button" role="menuitem" className="menu-conta-sair" onClick={encerrar}>
+          <button type="button" className="menu-conta-sair" onClick={encerrar}>
             sair
           </button>
         </div>

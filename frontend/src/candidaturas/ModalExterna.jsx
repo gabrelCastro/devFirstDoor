@@ -49,7 +49,7 @@ export default function ModalExterna({ aoCriar, aoFechar }) {
         <p className="formulario-nota">Para vagas que você encontrou fora do Dev First Door.</p>
         <label className="campo">
           <span>vaga *</span>
-          <input type="text" maxLength={255} value={dados.titulo} onChange={(e) => alterar('titulo', e.target.value)} autoFocus />
+          <input type="text" maxLength={255} value={dados.titulo} onChange={(e) => alterar('titulo', e.target.value)} />
         </label>
         <div className="formulario-dupla">
           <label className="campo">

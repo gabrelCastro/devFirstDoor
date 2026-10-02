@@ -374,7 +374,10 @@
 
 /* Histórico */
 
+/* position: relative prende os .sr-only (absolutos) da tabela dentro da rolagem; sem isso eles
+   escapam do recorte e alargam a página inteira no celular. */
 .historico-rolagem {
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--regua);
   border-radius: var(--radius);
@@ -946,6 +949,10 @@
   padding: 16px;
 }
 
+.metrica-numero small {
+  min-height: 1.4em;
+}
+
 .metrica-numero > span,
 .metrica-numero small {
   font-size: 9px;
@@ -955,7 +962,7 @@
 }
 
 .metrica-numero strong {
-  margin: auto 0 2px;
+  margin: auto 0 4px;
   font-size: clamp(22px, 3vw, 30px);
   line-height: 1.1;
   color: var(--acento);
@@ -1030,11 +1037,47 @@
   font-variant-numeric: tabular-nums;
 }
 
+.grafico-linha-foco {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico-linha-area {
+  position: relative;
+}
+
+/* preserveAspectRatio="none": o desenho ocupa a largura toda e as datas embaixo batem com ele. */
 .grafico-linha svg {
   display: block;
   width: 100%;
   height: min(210px, 28vw);
   min-height: 150px;
+}
+
+.grafico-guia {
+  stroke: var(--regua-forte);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.grafico-linha-ponto {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--papel);
+  border-radius: 50%;
+  background: var(--acento);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.grafico-linha-alvo {
+  position: absolute;
+  top: 0;
+  bottom: 0;
 }
 
 .grafico-eixo {
@@ -1058,8 +1101,9 @@
 .grafico-datas {
   display: flex;
   justify-content: space-between;
-  padding: 0 3%;
-  margin-top: -8px;
+  /* Centraliza as datas sob o primeiro e o último ponto (a 20 de 600 unidades das bordas). */
+  padding: 0 max(0px, calc(100% / 30 - 1.5em));
+  margin-top: 4px;
   font-size: 9px;
   color: var(--tinta-fraca);
 }
