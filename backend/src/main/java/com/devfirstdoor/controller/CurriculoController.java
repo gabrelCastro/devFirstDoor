@@ -5,9 +5,17 @@ import com.devfirstdoor.controller.dto.StatusCurriculoResponse;
 import com.devfirstdoor.controller.dto.VersaoCurriculoResponse;
 import com.devfirstdoor.controller.dto.VersaoCurriculoResumoResponse;
 import com.devfirstdoor.curriculo.AdaptacaoService;
+import com.devfirstdoor.curriculo.CurriculoFinal;
 import com.devfirstdoor.curriculo.Escolhas;
 import com.devfirstdoor.curriculo.PerfilCurriculo;
 import com.devfirstdoor.curriculo.PerfilCurriculoService;
+import com.devfirstdoor.curriculo.render.DocxCurriculo;
+import com.devfirstdoor.curriculo.render.PdfCurriculo;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -80,5 +88,41 @@ public class CurriculoController {
     @PutMapping("/perfil")
     public PerfilCurriculo salvar(Authentication authentication, @RequestBody PerfilCurriculo perfil) {
         return perfilService.salvar(authentication.getName(), perfil, LocalDateTime.now());
+    }
+
+    /** Currículo do perfil, sem adaptação. */
+    @GetMapping("/perfil/{formato:pdf|docx}")
+    public ResponseEntity<byte[]> baixarPerfil(Authentication authentication, @PathVariable String formato) {
+        PerfilCurriculo perfil = perfilService.obter(authentication.getName());
+        return arquivo(CurriculoFinal.doPerfil(perfil), formato);
+    }
+
+    @GetMapping("/versoes/{id}/{formato:pdf|docx}")
+    public ResponseEntity<byte[]> baixarVersao(Authentication authentication, @PathVariable long id,
+                                               @PathVariable String formato) {
+        return arquivo(adaptacaoService.curriculoFinal(authentication.getName(), id), formato);
+    }
+
+    private static final MediaType DOCX =
+            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+    private static ResponseEntity<byte[]> arquivo(CurriculoFinal curriculo, String formato) {
+        if (curriculo.contato() == null || curriculo.contato().nome() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe seu nome no perfil antes de baixar o currículo.");
+        }
+        boolean pdf = "pdf".equals(formato);
+        byte[] conteudo = pdf ? PdfCurriculo.gerar(curriculo) : DocxCurriculo.gerar(curriculo);
+        return ResponseEntity.ok()
+                .contentType(pdf ? MediaType.APPLICATION_PDF : DOCX)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(nomeArquivo(curriculo.contato().nome()) + "." + formato).build().toString())
+                .body(conteudo);
+    }
+
+    /** "Maria da Silva" → "Maria-da-Silva-Curriculo", como os recrutadores recomendam. */
+    static String nomeArquivo(String nome) {
+        String semAcento = java.text.Normalizer.normalize(nome, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        String base = semAcento.replaceAll("[^A-Za-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        return (base.isEmpty() ? "" : base + "-") + "Curriculo";
     }
 }

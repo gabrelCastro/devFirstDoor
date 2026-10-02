@@ -101,6 +101,29 @@ class CurriculoPerfilControllerTest {
                 .andExpect(jsonPath("$.mensagem").value("Experiência \"Dev\": início deve estar no formato aaaa-mm"));
     }
 
+    @Test
+    void baixar_pdfEDocxComNomeDeArquivoDaPessoa() throws Exception {
+        mockMvc.perform(put("/api/curriculo/perfil").header(HttpHeaders.AUTHORIZATION, maria)
+                .contentType(MediaType.APPLICATION_JSON).content(PERFIL)).andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/curriculo/perfil/pdf").header(HttpHeaders.AUTHORIZATION, maria))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .contentType(MediaType.APPLICATION_PDF))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Maria-Silva-Curriculo.pdf\""));
+        mockMvc.perform(get("/api/curriculo/perfil/docx").header(HttpHeaders.AUTHORIZATION, maria))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Maria-Silva-Curriculo.docx\""));
+        // Sem nome no perfil não há o que baixar.
+        mockMvc.perform(get("/api/curriculo/perfil/pdf").header(HttpHeaders.AUTHORIZATION, joao))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value("Informe seu nome no perfil antes de baixar o currículo."));
+        mockMvc.perform(get("/api/curriculo/perfil/exe").header(HttpHeaders.AUTHORIZATION, maria))
+                .andExpect(status().isNotFound());
+    }
+
     static String token(org.springframework.test.web.servlet.MockMvc mockMvc, String usuario) throws Exception {
         String credenciais = "{\"usuario\":\"" + usuario + "\",\"senha\":\"senha-forte\"}";
         mockMvc.perform(post("/api/conta").contentType(MediaType.APPLICATION_JSON).content(credenciais));
