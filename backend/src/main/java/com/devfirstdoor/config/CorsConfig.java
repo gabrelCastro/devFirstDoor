@@ -16,6 +16,8 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins("*")
-                .allowedMethods("GET", "POST");
+                // Precisa de todos os métodos usados pela API: com o proxy do Vite a requisição chega
+                // com o Origin do navegador e um método fora da lista vira 403.
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE");
     }
 }

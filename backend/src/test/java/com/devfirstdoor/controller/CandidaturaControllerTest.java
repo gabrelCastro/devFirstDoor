@@ -271,6 +271,25 @@ class CandidaturaControllerTest {
                 .andExpect(jsonPath("$.semanas[11].enviadas").value(2));
     }
 
+    /** Pelo proxy do Vite a requisição chega com o Origin do navegador: PATCH/PUT/DELETE não podem virar 403. */
+    @Test
+    void cors_deveLiberarTodosOsMetodosDaApi() throws Exception {
+        long id = idDe(criar(joao, "{\"vagaId\":" + vaga.getId() + "}"));
+        String origem = "http://localhost:5173";
+
+        mockMvc.perform(patch("/api/candidaturas/" + id).header(HttpHeaders.ORIGIN, origem)
+                        .header(HttpHeaders.AUTHORIZATION, joao)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"etapa\":\"CANDIDATADO\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/candidaturas/" + id + "/proximo-passo").header(HttpHeaders.ORIGIN, origem)
+                        .header(HttpHeaders.AUTHORIZATION, joao)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"texto\":\"x\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/candidaturas/" + id).header(HttpHeaders.ORIGIN, origem)
+                        .header(HttpHeaders.AUTHORIZATION, joao))
+                .andExpect(status().isNoContent());
+    }
+
     @Test
     void exportar_deveGerarCsvParaOExcel() throws Exception {
         criar(joao, "{\"vagaId\":" + vaga.getId() + "}");
