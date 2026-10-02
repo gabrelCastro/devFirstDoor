@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -34,7 +35,10 @@ public class OpenAiClienteIa implements ClienteIa {
         HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
         JdkClientHttpRequestFactory fabrica = new JdkClientHttpRequestFactory(http);
         fabrica.setReadTimeout(Duration.ofSeconds(properties.getTimeoutSegundos()));
-        this.restClient = RestClient.builder().baseUrl(properties.getUrlBase()).requestFactory(fabrica).build();
+        // Bufferizado para mandar Content-Length em vez de corpo em blocos (chunked), que alguns
+        // proxies e servidores compatíveis com a API da OpenAI recusam. O corpo é pequeno.
+        this.restClient = RestClient.builder().baseUrl(properties.getUrlBase())
+                .requestFactory(new BufferingClientHttpRequestFactory(fabrica)).build();
     }
 
     @Override

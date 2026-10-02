@@ -98,6 +98,8 @@ app:
 logging:
   level:
     com.devfirstdoor: INFO
+    # O PDF usa as fontes padrão do PDF; o aviso de "fonte substituta" só importa para renderizar na tela.
+    org.apache.pdfbox.pdmodel.font: ERROR
 
 ---
 spring:
