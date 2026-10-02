@@ -373,6 +373,9 @@ export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, a
                   </a>
                 )}
               </p>
+              <a className="botao painel-curriculo" href={`/curriculo?aba=adaptar&candidatura=${candidatura.id}`}>
+                adaptar meu currículo para esta vaga
+              </a>
               {vagaSaiuDoAr(candidatura) && (
                 <p className="mensagem">A vaga saiu do ar na fonte. A candidatura continua aqui.</p>
               )}

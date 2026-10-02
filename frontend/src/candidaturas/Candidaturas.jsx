@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import '../App.css'
 import '../conta/conta.css'
 import './etapas.css'
+import '../paginaInterna.css'
 import './Candidaturas.css'
 import { useTema } from '../tema'
 import {

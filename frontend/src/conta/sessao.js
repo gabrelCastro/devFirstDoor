@@ -114,3 +114,32 @@ export async function sair() {
   if (!token) return
   await chamarApi('/api/auth/logout', { method: 'POST', token }).catch(() => {})
 }
+
+/**
+ * Baixa um arquivo de uma rota autenticada (o token não vai num link comum) e entrega ao navegador
+ * com o nome que o servidor mandou no Content-Disposition.
+ */
+export async function baixarArquivo(caminho, nomePadrao) {
+  const token = lerToken()
+  const resposta = await fetch(caminho, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (resposta.status === 401) {
+    if (token) {
+      apagarToken()
+      avisarExpiracao()
+    }
+    throw new ErroNaoAutenticado()
+  }
+  if (!resposta.ok) {
+    const corpo = await resposta.json().catch(() => null)
+    throw new Error(corpo?.mensagem ?? `API respondeu com status ${resposta.status}`)
+  }
+  const nome = /filename="([^"]+)"/.exec(resposta.headers.get('Content-Disposition') ?? '')?.[1] ?? nomePadrao
+  const url = URL.createObjectURL(await resposta.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = nome
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

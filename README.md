@@ -32,6 +32,8 @@ Variáveis do `.env`:
 | `LINKEDIN_ENABLED` | Liga o crawler do LinkedIn (padrão `false`; veja abaixo) |
 | `ADMIN_USER`, `ADMIN_PASSWORD` | Conta admin criada no banco ao subir; sem senha nenhum admin é criado |
 | `CADASTRO_ABERTO` | Permite o cadastro público de contas comuns (padrão `true`) |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | Chave e modelo da OpenAI para adaptar currículos; sem chave, só a adaptação fica desligada |
+| `IA_LIMITE_DIARIO` | Adaptações de currículo por conta a cada 24 horas (padrão `10`) |
 
 Assim que o backend sobe, uma coleta roda em segundo plano (`ColetaInicialRunner`), então o banco
 já fica populado sem passo manual. Depois disso a coleta se repete a cada `app.crawler.intervalo`
@@ -159,6 +161,51 @@ candidaturas (a de outra conta responde `404`); o limite é de 500 por conta.
 | `DELETE /api/candidaturas/{id}` | Exclui a candidatura e a linha do tempo. |
 | `GET /api/candidaturas/resumo` | Números do resumo e envios das últimas 12 semanas. |
 | `GET /api/candidaturas/exportar` | CSV com todas as candidaturas. |
+
+## Currículo
+
+Em <http://localhost:3000/curriculo> cada conta monta o currículo uma vez e gera versões sob medida
+para cada vaga.
+
+- **Meu perfil**: o perfil-mestre (contato, resumo, experiências com tópicos e tecnologias, projetos,
+  formação, cursos, habilidades e idiomas). Cada item ganha um id estável. Baixa em PDF ou DOCX.
+- **Adaptar para vaga**: cola a descrição da vaga (opcionalmente ligada a uma candidatura; o painel
+  da candidatura tem um atalho) e a IA reescreve os tópicos com o vocabulário da vaga.
+- **Versões**: cada adaptação fica guardada, com a cobertura de palavras-chave antes e depois.
+
+### Como a IA é usada (e por que ela não inventa)
+
+1. **Análise da vaga**: a descrição vira JSON (cargo, requisitos obrigatórios e desejáveis com os
+   termos, palavras-chave na grafia exata da vaga). Fica em cache pelo hash do texto, compartilhado
+   entre contas.
+2. **Casamento sem IA**: um dicionário de tecnologias com sinônimos cruza cada requisito com o perfil
+   e classifica como TEM, FRACO ou NAO_TEM, apontando os ids das evidências.
+3. **Adaptação**: a OpenAI recebe o perfil **sem contato e sem links**, a vaga e o casamento, e
+   responde com Structured Outputs em modo `strict`. O schema traz os ids reais da pessoa como `enum`:
+   o modelo não consegue citar uma experiência, um projeto ou uma fonte que não existe. Empresa,
+   cargo, datas e contato nem estão no schema: vêm sempre do perfil.
+4. **Validação sem IA**: um tópico só é aceito se apontar para tópicos do próprio item e se toda
+   tecnologia e todo número citados estiverem nas fontes. O que falhar fica barrado, com o motivo, e
+   o currículo usa o texto original.
+
+A pessoa revisa o diff tópico a tópico (aceitar ou recusar) e baixa a versão. O PDF tem texto real,
+uma coluna e títulos de seção padrão; o DOCX usa os estilos nativos de título e lista, que é como os
+ATS identificam nome, seções e tópicos.
+
+A chave da OpenAI fica só no backend. Cada conta tem uma cota de adaptações por 24 horas
+(`IA_LIMITE_DIARIO`); falhas da API não contam. O modelo é configurável em `OPENAI_MODEL`
+(precisa suportar Structured Outputs); confira o preço atual na página de preços da OpenAI.
+
+| Método e rota | Uso |
+|---|---|
+| `GET /api/curriculo/perfil` / `PUT /api/curriculo/perfil` | Lê ou substitui o perfil-mestre (devolve a versão normalizada, com os ids). |
+| `GET /api/curriculo/perfil/{pdf\|docx}` | Currículo do perfil, sem adaptação. |
+| `GET /api/curriculo/status` | Se a IA está configurada e quanto da cota foi usado. |
+| `POST /api/curriculo/versoes` | `{descricaoVaga, candidaturaId?}`: analisa, adapta, valida e guarda a versão. `429` sem cota, `503` sem IA. |
+| `GET /api/curriculo/versoes` / `GET /api/curriculo/versoes/{id}` | Lista (com cobertura) e detalhe (vaga, proposta e escolhas). |
+| `PUT /api/curriculo/versoes/{id}/escolhas` | `{usarResumo, recusados}`: o que a pessoa aceitou. |
+| `GET /api/curriculo/versoes/{id}/{pdf\|docx}` | Currículo adaptado (contato atual + fatos da cópia do perfil + escolhas). |
+| `DELETE /api/curriculo/versoes/{id}` | Exclui a versão. |
 
 ## Área administrativa
 

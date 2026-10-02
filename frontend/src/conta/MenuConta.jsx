@@ -41,7 +41,7 @@ export default function MenuConta({ paginaAtual }) {
   async function encerrar() {
     setAberto(false)
     await sair()
-    if (paginaAtual === 'candidaturas') window.location.assign('/')
+    if (paginaAtual === 'candidaturas' || paginaAtual === 'curriculo') window.location.assign('/')
   }
 
   return (
@@ -63,6 +63,11 @@ export default function MenuConta({ paginaAtual }) {
           {paginaAtual !== 'candidaturas' && (
             <a href="/candidaturas">
               minhas candidaturas
+            </a>
+          )}
+          {paginaAtual !== 'curriculo' && (
+            <a href="/curriculo">
+              meu currículo
             </a>
           )}
           {paginaAtual !== 'vagas' && (

@@ -32,6 +32,9 @@ services:
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       CADASTRO_ABERTO: ${CADASTRO_ABERTO:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      IA_LIMITE_DIARIO: ${IA_LIMITE_DIARIO:-10}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
