@@ -21,7 +21,7 @@ function mesAtual() {
 }
 
 /** Edita o perfil-mestre: fatos que a IA vai usar (e só eles). */
-export default function EditorPerfil({ perfilInicial, aoSalvar, aoExpirar }) {
+export default function EditorPerfil({ perfilInicial, aoSalvar, aoMudarPendencia, aoExpirar }) {
   const [perfil, setPerfil] = useState(perfilInicial)
   const [salvo, setSalvo] = useState(() => JSON.stringify(perfilInicial))
   const [salvando, setSalvando] = useState(false)
@@ -29,6 +29,13 @@ export default function EditorPerfil({ perfilInicial, aoSalvar, aoExpirar }) {
   const [baixando, setBaixando] = useState(null)
   const pendente = useMemo(() => JSON.stringify(perfil) !== salvo, [perfil, salvo])
   const faltas = pendencias(perfil)
+
+  // A página precisa saber das alterações pendentes para avisar antes de trocar de aba.
+  useEffect(() => {
+    aoMudarPendencia?.(pendente)
+  }, [pendente, aoMudarPendencia])
+
+  useEffect(() => () => aoMudarPendencia?.(false), [aoMudarPendencia])
 
   useEffect(() => {
     if (!pendente) return

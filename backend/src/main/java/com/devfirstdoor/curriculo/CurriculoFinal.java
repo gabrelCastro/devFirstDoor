@@ -116,19 +116,28 @@ public record CurriculoFinal(
     }
 
     private static List<String> bullets(Bloco bloco, List<Item> originais, Set<String> recusados) {
-        List<String> resultado = new ArrayList<>();
+        // Fontes já reescritas por um tópico aceito: o original delas não volta, senão o mesmo
+        // fato apareceria duas vezes (reescrito e original).
         Set<String> jaUsados = new LinkedHashSet<>();
         for (Bullet b : bloco.bullets()) {
-            if (Proposta.OK.equals(b.status()) && !recusados.contains(b.chave())) {
+            if (aceito(b, recusados)) jaUsados.addAll(b.originais());
+        }
+        List<String> resultado = new ArrayList<>();
+        for (Bullet b : bloco.bullets()) {
+            if (aceito(b, recusados)) {
                 resultado.add(b.texto());
             } else {
-                // Recusado ou bloqueado: entram os textos originais das fontes, sem repetir.
+                // Recusado ou bloqueado: entram os originais das fontes que ninguém cobriu, sem repetir.
                 for (String original : b.originais()) {
                     if (jaUsados.add(original)) resultado.add(original);
                 }
             }
         }
         return resultado.isEmpty() ? textos(originais) : resultado;
+    }
+
+    private static boolean aceito(Bullet b, Set<String> recusados) {
+        return Proposta.OK.equals(b.status()) && !recusados.contains(b.chave());
     }
 
     private static Secao secao(Experiencia e, List<String> bullets) {

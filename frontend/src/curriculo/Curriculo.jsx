@@ -72,6 +72,7 @@ function AreaCurriculo() {
   const [status, setStatus] = useState(null)
   const [versao, setVersao] = useState(null)
   const [erro, setErro] = useState(null)
+  const [perfilPendente, setPerfilPendente] = useState(false)
 
   const expirar = useCallback(() => {
     sair()
@@ -84,6 +85,18 @@ function AreaCurriculo() {
       return proximo
     })
   }, [])
+
+  /** Sair da aba do perfil desmonta o editor: com alterações não salvas, pede confirmação antes. */
+  const trocarDeAba = useCallback(
+    (novo) => {
+      if (url.aba === 'perfil' && novo.aba && novo.aba !== 'perfil' && perfilPendente
+          && !window.confirm('Há alterações não salvas no seu perfil. Sair sem salvar?')) {
+        return
+      }
+      navegar(novo)
+    },
+    [url.aba, perfilPendente, navegar],
+  )
 
   const atualizarStatus = useCallback(() => {
     obterStatus().then(setStatus).catch(() => {})
@@ -139,7 +152,7 @@ function AreaCurriculo() {
             type="button"
             className={`aba ${url.aba === aba.id ? 'aba-ativa' : ''}`}
             aria-current={url.aba === aba.id ? 'page' : undefined}
-            onClick={() => navegar({ aba: aba.id, versao: null })}
+            onClick={() => trocarDeAba({ aba: aba.id, versao: null })}
           >
             {aba.rotulo}
           </button>
@@ -147,7 +160,7 @@ function AreaCurriculo() {
       </nav>
 
       {url.aba === 'perfil' && (
-        <EditorPerfil perfilInicial={perfil} aoSalvar={setPerfil} aoExpirar={expirar} />
+        <EditorPerfil perfilInicial={perfil} aoSalvar={setPerfil} aoMudarPendencia={setPerfilPendente} aoExpirar={expirar} />
       )}
 
       {url.aba === 'adaptar' && (

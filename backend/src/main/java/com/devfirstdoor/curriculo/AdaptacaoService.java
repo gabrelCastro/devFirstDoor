@@ -91,53 +91,67 @@ public class AdaptacaoService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "A geração com IA não está configurada no servidor.");
         }
 
-        // 1. Leituras e conferências, numa transação curta.
+        // 1. Leituras e conferências que não custam nada, numa transação curta.
         PerfilCurriculo perfil = perfilService.obter(login);
+        if (perfil.experiencias().isEmpty() && perfil.projetos().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Preencha seu perfil com pelo menos uma experiência ou projeto antes de adaptar.");
+        }
         String tituloCandidatura = leitura.execute(s -> {
             Usuario usuario = usuario(login);
-            if (usoIaRepository.contarDesde(usuario.getId(), agora.minusHours(24)) >= properties.getLimiteDiario()) {
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Você usou as "
-                        + properties.getLimiteDiario() + " adaptações das últimas 24 horas. Tente de novo mais tarde.");
-            }
             if (versaoRepository.countByUsuarioId(usuario.getId()) >= MAX_VERSOES) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Limite de " + MAX_VERSOES + " versões atingido. Exclua as antigas para continuar.");
             }
             return request.candidaturaId() == null ? null : candidatura(request.candidaturaId(), usuario).getEmpresa();
         });
-        if (perfil.experiencias().isEmpty() && perfil.projetos().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Preencha seu perfil com pelo menos uma experiência ou projeto antes de adaptar.");
-        }
 
-        // 2. IA, fora de transação.
-        VagaAnalisada vaga = analiseVagaService.analisar(descricao);
-        Map<String, Evidencia> casamento = Casamento.calcular(perfil, vaga);
-        String json = clienteIa.gerarJson(PromptAdaptacao.INSTRUCOES,
-                PromptAdaptacao.entrada(perfil, vaga, casamento, objectMapper),
-                "curriculo_adaptado", PromptAdaptacao.schema(perfil, vaga));
-        AdaptacaoIa resposta;
-        try {
-            resposta = objectMapper.readValue(json, AdaptacaoIa.class);
-        } catch (JacksonException e) {
-            throw FalhaIaException.indisponivel();
-        }
-        Escolhas escolhas = Escolhas.aceitarTudo();
-        Proposta proposta = comCobertura(perfil, vaga, ValidadorAdaptacao.validar(perfil, vaga, resposta), escolhas);
-        String empresa = vaga.empresa() != null ? vaga.empresa() : tituloCandidatura;
-        String titulo = vaga.cargo() + (empresa == null ? "" : " · " + empresa);
-
-        // 3. Grava a versão e conta o uso, numa transação.
-        return transacao.execute(s -> {
-            Usuario usuario = usuario(login);
-            Candidatura candidatura = request.candidaturaId() == null ? null : candidatura(request.candidaturaId(), usuario);
-            usoIaRepository.save(new UsoIa(usuario, agora));
-            VersaoCurriculo versao = versaoRepository.save(new VersaoCurriculo(usuario, candidatura,
-                    titulo.length() > 300 ? titulo.substring(0, 300) : titulo, descricao,
-                    objectMapper.writeValueAsString(perfil), objectMapper.writeValueAsString(vaga),
-                    objectMapper.writeValueAsString(proposta), objectMapper.writeValueAsString(escolhas), agora));
-            return resposta(versao);
+        // 2. Reserva da cota antes de gastar com a IA. A linha da conta fica travada durante a
+        // conferência e a reserva: pedidos simultâneos (duplo clique, várias abas) entram em fila e
+        // não passam do limite.
+        long reservaId = transacao.execute(s -> {
+            Usuario usuario = usuarioRepository.travar(usuario(login).getId()).orElseThrow();
+            if (usoIaRepository.contarDesde(usuario.getId(), agora.minusHours(24)) >= properties.getLimiteDiario()) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Você usou as "
+                        + properties.getLimiteDiario() + " adaptações das últimas 24 horas. Tente de novo mais tarde.");
+            }
+            return usoIaRepository.save(new UsoIa(usuario, agora)).getId();
         });
+
+        try {
+            // 3. IA, fora de transação. Se a análise der certo e a adaptação falhar, a análise fica
+            // em cache: tentar de novo não paga por ela outra vez.
+            VagaAnalisada vaga = analiseVagaService.analisar(descricao);
+            Map<String, Evidencia> casamento = Casamento.calcular(perfil, vaga);
+            String json = clienteIa.gerarJson(PromptAdaptacao.INSTRUCOES,
+                    PromptAdaptacao.entrada(perfil, vaga, casamento, objectMapper),
+                    "curriculo_adaptado", PromptAdaptacao.schema(perfil, vaga));
+            AdaptacaoIa resposta;
+            try {
+                resposta = objectMapper.readValue(json, AdaptacaoIa.class);
+            } catch (JacksonException e) {
+                throw FalhaIaException.indisponivel();
+            }
+            Escolhas escolhas = Escolhas.aceitarTudo();
+            Proposta proposta = comCobertura(perfil, vaga, ValidadorAdaptacao.validar(perfil, vaga, resposta), escolhas);
+            String empresa = vaga.empresa() != null ? vaga.empresa() : tituloCandidatura;
+            String titulo = vaga.cargo() + (empresa == null ? "" : " · " + empresa);
+
+            // 4. Grava a versão (a reserva vira o uso contado).
+            return transacao.execute(s -> {
+                Usuario usuario = usuario(login);
+                Candidatura candidatura = request.candidaturaId() == null ? null : candidatura(request.candidaturaId(), usuario);
+                VersaoCurriculo versao = versaoRepository.save(new VersaoCurriculo(usuario, candidatura,
+                        titulo.length() > 300 ? titulo.substring(0, 300) : titulo, descricao,
+                        objectMapper.writeValueAsString(perfil), objectMapper.writeValueAsString(vaga),
+                        objectMapper.writeValueAsString(proposta), objectMapper.writeValueAsString(escolhas), agora));
+                return resposta(versao);
+            });
+        } catch (RuntimeException e) {
+            // Falhou (IA fora do ar, resposta inválida, erro ao gravar): devolve a reserva da cota.
+            transacao.executeWithoutResult(s -> usoIaRepository.deleteById(reservaId));
+            throw e;
+        }
     }
 
     public List<VersaoCurriculoResumoResponse> listar(String login) {

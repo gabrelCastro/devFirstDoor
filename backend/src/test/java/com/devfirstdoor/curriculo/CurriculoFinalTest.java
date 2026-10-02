@@ -51,6 +51,19 @@ class CurriculoFinalTest {
     }
 
     @Test
+    void originalJaReescritoPorTopicoAceito_naoAparecaDeNovo() {
+        // Dois tópicos da mesma fonte: o primeiro (barrado) vem antes do segundo (aceito).
+        Proposta p = ValidadorAdaptacao.validar(Fixtures.perfil(), Fixtures.vaga(), new AdaptacaoIa(null,
+                List.of(new BlocoIa("e-banco", List.of(
+                        new BulletIa("Implantei endpoints em Kubernetes", List.of("b-api"), List.of()),
+                        new BulletIa("Desenvolvi endpoints de cadastro em Java e Spring Boot", List.of("b-api"), List.of())))),
+                List.of(), List.of(), List.of(), List.of()));
+        CurriculoFinal c = CurriculoFinal.montar(Fixtures.perfil(), null, p, Escolhas.aceitarTudo());
+        assertThat(c.experiencias().get(0).bullets())
+                .containsExactly("Desenvolvi endpoints de cadastro em Java e Spring Boot");
+    }
+
+    @Test
     void semExperiencia_projetosVemPrimeiro() {
         PerfilCurriculo p = Fixtures.perfil();
         PerfilCurriculo semExp = new PerfilCurriculo(p.contato(), p.resumo(), List.of(), p.projetos(), p.formacoes(),

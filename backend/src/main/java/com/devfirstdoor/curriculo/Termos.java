@@ -58,10 +58,18 @@ public final class Termos {
             Map.entry("kafka", List.of("kafka")),
             Map.entry("rabbitmq", List.of("rabbitmq")),
             Map.entry("linux", List.of("linux")),
-            Map.entry("ci/cd", List.of("ci/cd", "ci cd", "integracao continua", "github actions", "jenkins")),
-            Map.entry("scrum", List.of("scrum", "metodologias ageis", "agil", "kanban")),
+            // Ferramentas diferentes ficam em termos diferentes: o validador compara termos, então
+            // juntar Jenkins e GitHub Actions deixaria a IA trocar uma pela outra sem ser barrada.
+            Map.entry("ci/cd", List.of("ci/cd", "ci cd", "integracao continua", "entrega continua")),
+            Map.entry("github actions", List.of("github actions")),
+            Map.entry("jenkins", List.of("jenkins")),
+            Map.entry("gitlab ci", List.of("gitlab ci", "gitlab-ci")),
+            Map.entry("scrum", List.of("scrum")),
+            Map.entry("kanban", List.of("kanban")),
+            Map.entry("metodologias ageis", List.of("metodologias ageis", "metodos ageis", "agil", "ageis", "agile")),
             Map.entry("c#", List.of("c#", ".net", "dotnet")),
-            Map.entry("go", List.of("golang")),
+            // "go" só como palavra isolada (a borda de palavra impede casar dentro de "google" ou "algo").
+            Map.entry("go", List.of("go", "golang")),
             Map.entry("php", List.of("php")),
             Map.entry("ingles", List.of("ingles", "english"))
     );
@@ -96,11 +104,22 @@ public final class Termos {
                 achados.add(padrao.getKey());
             }
         }
-        // "spring boot" também casa "spring": não conta a forma genérica quando a específica apareceu.
-        if (achados.contains("spring boot") && !normalizado.replace("spring boot", "").contains("spring")) {
-            achados.remove("spring");
-        }
+        // Formas específicas também casam a genérica ("spring boot" contém "spring", "github actions"
+        // contém "github"): a genérica só conta se aparecer sozinha em outro ponto do texto.
+        removerGenerica(achados, normalizado, "spring boot", "spring");
+        removerGenerica(achados, normalizado, "github actions", "github");
+        removerGenerica(achados, normalizado, "gitlab ci", "gitlab");
         return achados;
+    }
+
+    private static void removerGenerica(Set<String> achados, String texto, String especifica, String generica) {
+        if (achados.contains(especifica) && achados.contains(generica)) {
+            String semEspecifica = texto.replace(especifica, " ").replace(especifica.replace(' ', '-'), " ");
+            if (!PADROES.stream().filter(p -> p.getKey().equals(generica))
+                    .anyMatch(p -> p.getValue().matcher(semEspecifica).find())) {
+                achados.remove(generica);
+            }
+        }
     }
 
     /** O termo aparece no texto (pelo dicionário, ou literalmente quando não está nele)? */

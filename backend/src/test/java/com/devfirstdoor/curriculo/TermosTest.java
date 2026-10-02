@@ -25,4 +25,22 @@ class TermosTest {
         assertThat(Termos.contem("Design no Figma", "figma")).isTrue();
         assertThat(Termos.contem("Configurei o Figmaster", "figma")).isFalse();
     }
+
+    @Test
+    void goSoComoPalavraIsolada() {
+        assertThat(Termos.contem("Backend em Go e Python", "Go")).isTrue();
+        assertThat(Termos.contem("Serviços em Golang", "Go")).isTrue();
+        assertThat(Termos.encontrar("Integração com Google e algoritmos")).doesNotContain("go");
+    }
+
+    @Test
+    void ferramentasDiferentesNaoSaoSinonimas() {
+        assertThat(Termos.encontrar("Pipelines no Jenkins")).containsExactly("jenkins");
+        assertThat(Termos.encontrar("Pipelines no GitHub Actions")).containsExactly("github actions");
+        assertThat(Termos.encontrar("Repositórios no GitHub e pipelines no GitHub Actions"))
+                .contains("github", "github actions");
+        assertThat(Termos.encontrar("Times com Kanban")).containsExactly("kanban");
+        assertThat(Termos.contem("Trabalhei com Kanban", "Scrum")).isFalse();
+        assertThat(Termos.contem("Pipelines no GitHub Actions", "Jenkins")).isFalse();
+    }
 }

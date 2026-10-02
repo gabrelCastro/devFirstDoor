@@ -38,4 +38,8 @@ public class UsoIa {
         this.usuario = usuario;
         this.criadoEm = criadoEm;
     }
+
+    public Long getId() {
+        return id;
+    }
 }

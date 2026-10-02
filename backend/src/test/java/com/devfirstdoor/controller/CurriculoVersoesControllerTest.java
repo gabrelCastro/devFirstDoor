@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
@@ -163,6 +164,36 @@ class CurriculoVersoesControllerTest {
                 .andExpect(jsonPath("$.mensagem").value("Você usou as 2 adaptações das últimas 24 horas. Tente de novo mais tarde."));
     }
 
+    /** Três pedidos ao mesmo tempo com limite de 2: a reserva travada deixa passar exatamente 2. */
+    @Test
+    void pedidosSimultaneos_naoUltrapassamACota() throws Exception {
+        java.util.concurrent.CountDownLatch dentroDaIa = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch liberar = new java.util.concurrent.CountDownLatch(1);
+        when(clienteIa.gerarJson(anyString(), anyString(), eq("vaga_analisada"), any())).thenAnswer(inv -> {
+            dentroDaIa.countDown();
+            liberar.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            return ANALISE;
+        });
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(3);
+        try {
+            List<java.util.concurrent.Future<Integer>> pedidos = new java.util.ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                pedidos.add(pool.submit(() -> adaptar(maria, corpo(DESCRICAO, null)).andReturn().getResponse().getStatus()));
+            }
+            // Os dois que reservaram estão parados "na IA"; o terceiro já foi recusado.
+            org.assertj.core.api.Assertions.assertThat(dentroDaIa.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            liberar.countDown();
+            List<Integer> status = new java.util.ArrayList<>();
+            for (var pedido : pedidos) status.add(pedido.get(20, java.util.concurrent.TimeUnit.SECONDS));
+            org.assertj.core.api.Assertions.assertThat(status).containsExactlyInAnyOrder(201, 201, 429);
+        } finally {
+            liberar.countDown();
+            pool.shutdownNow();
+        }
+        mockMvc.perform(get("/api/curriculo/status").header(HttpHeaders.AUTHORIZATION, maria))
+                .andExpect(jsonPath("$.usadasNasUltimas24h").value(2));
+    }
+
     @Test
     void validacoesAntesDeGastarComIa() throws Exception {
         adaptar(maria, corpo("curta demais", null)).andExpect(status().isBadRequest());
@@ -221,6 +252,8 @@ class CurriculoVersoesControllerTest {
         adaptar(maria, corpo(DESCRICAO, candidaturaId))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.candidaturaId").value(candidaturaId));
+        mockMvc.perform(put("/api/curriculo/perfil").header(HttpHeaders.AUTHORIZATION, joao)
+                .contentType(MediaType.APPLICATION_JSON).content(CurriculoPerfilControllerTest.PERFIL));
         adaptar(joao, corpo(DESCRICAO, candidaturaId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.mensagem").value("Candidatura não encontrada"));

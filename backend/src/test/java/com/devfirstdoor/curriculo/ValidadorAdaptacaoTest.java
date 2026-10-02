@@ -57,6 +57,20 @@ class ValidadorAdaptacaoTest {
     }
 
     @Test
+    void trocarUmaFerramentaPorOutraDoMesmoTipo_ficaBloqueado() {
+        PerfilCurriculo base = Fixtures.perfil();
+        PerfilCurriculo perfil = new PerfilCurriculo(base.contato(), base.resumo(),
+                List.of(new PerfilCurriculo.Experiencia("e-ci", "Estagiária", "X", null, null, null,
+                        List.of(new PerfilCurriculo.Item("b-ci", "Configurei pipelines no GitHub Actions")), List.of())),
+                List.of(), List.of(), List.of(), List.of(), List.of());
+        Proposta p = ValidadorAdaptacao.validar(perfil, Fixtures.vaga(), new AdaptacaoIa(null,
+                List.of(new BlocoIa("e-ci", List.of(new BulletIa("Configurei pipelines no Jenkins", List.of("b-ci"), List.of())))),
+                List.of(), List.of(), List.of(), List.of()));
+        assertThat(p.experiencias().get(0).bullets().get(0).status()).isEqualTo(Proposta.BLOQUEADO);
+        assertThat(p.experiencias().get(0).bullets().get(0).motivo()).contains("jenkins");
+    }
+
+    @Test
     void numeroInventado_ficaBloqueado_masNumeroDaFontePassa() {
         assertThat(unico(new BulletIa("Corrigi 40 bugs do time de QA", List.of("b-bugs"), List.of())).status())
                 .isEqualTo(Proposta.BLOQUEADO);
