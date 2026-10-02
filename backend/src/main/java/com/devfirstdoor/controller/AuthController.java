@@ -34,7 +34,7 @@ public class AuthController {
         this.usuarioService = usuarioService;
     }
 
-    /** Senha errada, conta inexistente ou desativada: 401 com a mesma mensagem (ver UsuarioErrosHandler). */
+    /** Senha errada, conta inexistente ou desativada: 401 com a mesma mensagem (ver ApiErrosHandler). */
     @PostMapping("/login")
     public SessaoResponse login(@Valid @RequestBody LoginRequest request) {
         Authentication autenticado = authenticationManager.authenticate(
