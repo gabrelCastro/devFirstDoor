@@ -68,7 +68,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/conta", "/api/auth/login").permitAll()
                         .requestMatchers("/api/conta", "/api/conta/**", "/api/auth/**",
-                                "/api/candidaturas", "/api/candidaturas/**").authenticated()
+                                "/api/candidaturas", "/api/candidaturas/**", "/api/curriculo/**").authenticated()
                         .anyRequest().permitAll());
         return http.build();
     }

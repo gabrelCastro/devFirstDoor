@@ -1,5 +1,6 @@
 package com.devfirstdoor.controller;
 
+import com.devfirstdoor.curriculo.ia.FalhaIaException;
 import com.devfirstdoor.service.CandidaturaDuplicadaException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -14,13 +15,19 @@ import java.util.Map;
 
 /** Devolve os erros de contas e candidaturas no formato {@code {"mensagem": ...}} que o frontend exibe. */
 @RestControllerAdvice(assignableTypes = {ContaController.class, AdminUsuarioController.class, AuthController.class,
-        CandidaturaController.class})
+        CandidaturaController.class, CurriculoController.class})
 public class ApiErrosHandler {
 
     @ExceptionHandler(CandidaturaDuplicadaException.class)
     public ResponseEntity<Map<String, Object>> duplicada(CandidaturaDuplicadaException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("mensagem", e.getMessage(), "id", e.getCandidaturaId()));
+    }
+
+    /** Falha da IA, com mensagem já segura para o usuário (sem chave nem detalhes do provedor). */
+    @ExceptionHandler(FalhaIaException.class)
+    public ResponseEntity<Map<String, String>> falhaIa(FalhaIaException e) {
+        return ResponseEntity.status(e.getStatus()).body(Map.of("mensagem", e.getMessage()));
     }
 
     /** JSON malformado ou valor fora do enum (etapa inexistente, data inválida). */

@@ -26,6 +26,14 @@ app:
   sessao:
     # Validade do token de login (POST /api/auth/login). O logout revoga antes disso.
     duracao: 30d
+  # Adaptação de currículo por vaga (OpenAI, Structured Outputs). Sem chave, só ela fica desligada.
+  ia:
+    chave: ${OPENAI_API_KEY:}
+    modelo: ${OPENAI_MODEL:gpt-4o-mini}
+    url-base: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    timeout-segundos: 90
+    # Adaptações por conta a cada 24 horas (cada uma custa duas chamadas à API).
+    limite-diario: ${IA_LIMITE_DIARIO:10}
   notificacoes:
     telegram:
       ligadas: false

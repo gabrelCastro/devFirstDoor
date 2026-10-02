@@ -17,13 +17,13 @@ import com.devfirstdoor.repository.CandidaturaRepository;
 import com.devfirstdoor.repository.EventoCandidaturaRepository;
 import com.devfirstdoor.repository.UsuarioRepository;
 import com.devfirstdoor.repository.VagaRepository;
+import com.devfirstdoor.util.LinkSeguro;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.URI;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -336,20 +335,7 @@ public class CandidaturaService {
 
     /** Só http(s) com host: o link vira um href na página, então {@code javascript:} não pode passar. */
     static String link(String valor) {
-        String limpo = opcional(valor);
-        if (limpo == null) {
-            return null;
-        }
-        try {
-            URI uri = URI.create(limpo);
-            String esquema = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-            if ((esquema.equals("http") || esquema.equals("https")) && uri.getHost() != null) {
-                return limpo;
-            }
-        } catch (IllegalArgumentException e) {
-            // cai no erro abaixo
-        }
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O link deve começar com http:// ou https://");
+        return LinkSeguro.validar(valor, "O link");
     }
 
     private static double arredondar(double valor, int escala) {
