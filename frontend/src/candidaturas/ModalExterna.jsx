@@ -50,7 +50,7 @@ export default function ModalExterna({ aoCriar, aoFechar }) {
       aoFechar={aoFechar}
       className="dialogo-largo"
     >
-      <form className="formulario" onSubmit={enviar} noValidate>
+      <form className="formulario" onSubmit={enviar} noValidate autoComplete="off">
         <label className="campo">
           <span>vaga *</span>
           <input type="text" maxLength={255} value={dados.titulo} onChange={(e) => alterar('titulo', e.target.value)} />

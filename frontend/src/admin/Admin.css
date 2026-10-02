@@ -627,6 +627,7 @@
 }
 
 .config-lista-linha input {
+  --fundo-campo: var(--papel-alt);
   flex: 1;
   min-width: 0;
   padding: 7px 8px;

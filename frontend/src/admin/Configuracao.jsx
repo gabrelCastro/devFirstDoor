@@ -147,6 +147,7 @@ function ListaEditavel({ titulo, valores, aoMudar, testeAts, aoExpirar }) {
           <div className="config-lista-linha">
             <input
               type="text"
+              autoComplete="off"
               value={valor}
               aria-label={`${titulo} ${indice + 1}`}
               onChange={(e) => alterar(indice, e.target.value)}
@@ -232,7 +233,12 @@ function Notificacoes({ configuracao, pendente, aoAlterar, aoExpirar }) {
             type="password"
             value={configuracao.telegramToken ?? ''}
             placeholder={configuracao.telegramTokenPreenchido ? 'token já configurado' : 'informe o token'}
+            // É um token, não a senha do admin: impede o navegador e os gerenciadores de senha
+            // (1Password, LastPass, Bitwarden) de oferecer ou preencher a senha salva aqui.
             autoComplete="new-password"
+            data-1p-ignore=""
+            data-lpignore="true"
+            data-bwignore=""
             onChange={(e) => aoAlterar('telegramToken', e.target.value)}
           />
           <small>{configuracao.telegramTokenPreenchido ? 'O token salvo nunca é exibido.' : 'Nenhum token salvo.'}</small>
@@ -241,6 +247,7 @@ function Notificacoes({ configuracao, pendente, aoAlterar, aoExpirar }) {
           <span>chat id</span>
           <input
             type="text"
+            autoComplete="off"
             value={configuracao.telegramChatId}
             placeholder="ex.: 123456789"
             onChange={(e) => aoAlterar('telegramChatId', e.target.value)}
@@ -387,6 +394,7 @@ export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
             <span>intervalo (minutos)</span>
             <input
               type="number"
+              autoComplete="off"
               min="30"
               value={configuracao.intervaloColetaMinutos}
               onChange={(e) => alterar('intervaloColetaMinutos', numeroOuVazio(e.target.value))}
@@ -396,6 +404,7 @@ export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
             <span>dias para expirar</span>
             <input
               type="number"
+              autoComplete="off"
               min="1"
               value={configuracao.diasParaExpirar}
               onChange={(e) => alterar('diasParaExpirar', numeroOuVazio(e.target.value))}
@@ -444,6 +453,7 @@ export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
               <span>pausa entre requisições (ms)</span>
               <input
                 type="number"
+                autoComplete="off"
                 min="0"
                 value={configuracao.pausaLinkedinMs}
                 onChange={(e) => alterar('pausaLinkedinMs', numeroOuVazio(e.target.value))}
@@ -453,6 +463,7 @@ export default function Configuracao({ aoExpirar, aoMudarPendencia }) {
               <span>variação da pausa (ms)</span>
               <input
                 type="number"
+                autoComplete="off"
                 min="0"
                 value={configuracao.variacaoPausaLinkedinMs}
                 onChange={(e) => alterar('variacaoPausaLinkedinMs', numeroOuVazio(e.target.value))}

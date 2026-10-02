@@ -177,6 +177,7 @@
 }
 
 .campo-conta-caixa {
+  --fundo-campo: var(--papel-alt);
   display: flex;
   align-items: center;
   border: 1px solid var(--regua-forte);
@@ -190,6 +191,7 @@
 }
 
 .campo-conta-caixa:focus-within {
+  --fundo-campo: var(--papel);
   border-color: var(--acento);
   background: var(--papel);
   box-shadow: 0 0 0 3px var(--acento-fraco);
@@ -220,32 +222,6 @@
 /* O anel fica na caixa inteira (com o botão de mostrar senha dentro). */
 .campo-conta input:focus-visible {
   outline: none;
-}
-
-/*
- * Preenchimento automático: o Chrome pinta o fundo do input com a cor dele, só atrás do texto,
- * e o campo preenchido fica diferente dos outros. A sombra interna repinta com a cor da caixa
- * (não dá para trocar o background do autofill) e a transição longa segura a cor do navegador.
- */
-.campo-conta input:-webkit-autofill,
-.campo-conta input:-webkit-autofill:hover,
-.campo-conta input:-webkit-autofill:focus,
-.campo input:-webkit-autofill,
-.campo input:-webkit-autofill:hover,
-.campo input:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--tinta);
-  caret-color: var(--tinta);
-  box-shadow: 0 0 0 1000px var(--papel-alt) inset;
-  transition: background-color 600000s 0s, color 600000s 0s;
-}
-
-.campo-conta-caixa:focus-within input:-webkit-autofill,
-.campo input:-webkit-autofill:focus {
-  box-shadow: 0 0 0 1000px var(--papel) inset;
-}
-
-.campo input:-webkit-autofill {
-  box-shadow: 0 0 0 1000px var(--papel) inset;
 }
 
 .campo-conta-revelar {

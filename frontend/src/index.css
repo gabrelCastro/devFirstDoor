@@ -129,6 +129,22 @@ button {
   color: inherit;
 }
 
+/*
+ * Preenchimento automático: o Chrome pinta o fundo do campo com a cor dele, só atrás do texto, e
+ * o campo preenchido fica diferente dos outros. A sombra interna repinta com o fundo do contexto
+ * (--fundo-campo, padrão papel) e a transição longa segura a cor do navegador.
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--tinta);
+  caret-color: var(--tinta);
+  box-shadow: 0 0 0 1000px var(--fundo-campo, var(--papel)) inset;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

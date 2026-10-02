@@ -120,6 +120,7 @@ function ProximoPasso({ candidatura, ocupado, aoSalvar }) {
       <h3 className="painel-secao-titulo">próximo passo</h3>
       <form
         className="painel-linha-form"
+        autoComplete="off"
         onSubmit={(evento) => {
           evento.preventDefault()
           aoSalvar(texto.trim() || null, texto.trim() ? data || null : null)
@@ -181,6 +182,7 @@ function DadosExterna({ candidatura, ocupado, aoSalvar }) {
       <h3 className="painel-secao-titulo">dados da vaga</h3>
       <form
         className="painel-grade-form"
+        autoComplete="off"
         onSubmit={(evento) => {
           evento.preventDefault()
           aoSalvar(dados)
