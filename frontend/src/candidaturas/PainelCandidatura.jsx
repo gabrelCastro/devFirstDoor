@@ -113,19 +113,24 @@ function Etapas({ candidatura, ocupado, aoMudar }) {
 function ProximoPasso({ candidatura, ocupado, aoSalvar }) {
   const [texto, setTexto] = useState(candidatura.proximoPasso ?? '')
   const [data, setData] = useState(candidatura.dataProximoPasso ?? '')
+  const [erro, setErro] = useState(null)
   const alterado = texto !== (candidatura.proximoPasso ?? '') || data !== (candidatura.dataProximoPasso ?? '')
+
+  function salvar(evento) {
+    evento.preventDefault()
+    // Data sem descrição seria descartada pelo servidor sem aviso.
+    if (!texto.trim() && data) {
+      setErro('Descreva o próximo passo para guardar a data.')
+      return
+    }
+    setErro(null)
+    aoSalvar(texto.trim() || null, texto.trim() ? data || null : null)
+  }
 
   return (
     <section className="painel-secao">
       <h3 className="painel-secao-titulo">próximo passo</h3>
-      <form
-        className="painel-linha-form"
-        autoComplete="off"
-        onSubmit={(evento) => {
-          evento.preventDefault()
-          aoSalvar(texto.trim() || null, texto.trim() ? data || null : null)
-        }}
-      >
+      <form className="painel-linha-form" autoComplete="off" onSubmit={salvar} noValidate>
         <label className="campo painel-campo-largo">
           <span className="sr-only">O que fazer</span>
           <input
@@ -133,13 +138,22 @@ function ProximoPasso({ candidatura, ocupado, aoSalvar }) {
             maxLength={200}
             placeholder="ex.: entregar o teste, mandar follow-up"
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            aria-invalid={erro ? true : undefined}
+            onChange={(e) => {
+              setTexto(e.target.value)
+              setErro(null)
+            }}
           />
         </label>
         <label className="campo">
           <span className="sr-only">Até quando</span>
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </label>
+        {erro && (
+          <p className="painel-erro-campo painel-linha-acoes" role="alert">
+            {erro}
+          </p>
+        )}
         <div className="painel-linha-acoes">
           <button type="submit" className="botao" disabled={ocupado || !alterado}>
             salvar
@@ -152,6 +166,7 @@ function ProximoPasso({ candidatura, ocupado, aoSalvar }) {
               onClick={() => {
                 setTexto('')
                 setData('')
+                setErro(null)
                 aoSalvar(null, null)
               }}
             >
@@ -277,7 +292,7 @@ function LinhaDoTempo({ eventos, ocupado, aoAdicionar, aoApagar }) {
  * Detalhes de uma candidatura, numa folha lateral ({@code <dialog>}). Cada alteração vai direto
  * para a API e devolve a candidatura atualizada para o quadro.
  */
-export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, aoExcluir, aoExpirar }) {
+export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, aoExcluir, aoExpirar, aoNaoEncontrada }) {
   const [detalhe, setDetalhe] = useState(null)
   const [erro, setErro] = useState(null)
   const [ocupado, setOcupado] = useState(false)
@@ -295,12 +310,14 @@ export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, a
       .catch((e) => {
         if (cancelado) return
         if (e instanceof ErroNaoAutenticado) aoExpirar()
+        // Link velho (?id= de uma candidatura excluída): fecha em vez de abrir um painel vazio.
+        else if (e.status === 404) aoNaoEncontrada()
         else setErro(e.message)
       })
     return () => {
       cancelado = true
     }
-  }, [id, versao, aoExpirar])
+  }, [id, versao, aoExpirar, aoNaoEncontrada])
 
   /** Roda uma alteração; devolve true se deu certo. */
   async function executar(acao) {
@@ -381,19 +398,35 @@ export default function PainelCandidatura({ id, versao, aoFechar, aoAtualizar, a
 
             <section className="painel-secao">
               <h3 className="painel-secao-titulo">candidatura enviada em</h3>
-              <label className="campo painel-campo-data">
-                <span className="sr-only">Data da candidatura</span>
-                <input
-                  type="date"
-                  max={hojeIso()}
-                  value={candidatura.dataCandidatura ?? ''}
-                  disabled={ocupado}
-                  onChange={(e) => {
-                    const valor = e.target.value
-                    if (valor) executar(async () => aplicar(await atualizarCandidatura(id, { dataCandidatura: valor })))
-                  }}
-                />
-              </label>
+              <div className="painel-data-linha">
+                <label className="campo painel-campo-data">
+                  <span className="sr-only">Data da candidatura</span>
+                  <input
+                    type="date"
+                    max={hojeIso()}
+                    value={candidatura.dataCandidatura ?? ''}
+                    disabled={ocupado}
+                    onChange={(e) => {
+                      const valor = e.target.value
+                      // Apagar pelo próprio campo também limpa (o input date fica vazio).
+                      const corpo = valor ? { dataCandidatura: valor } : { limparDataCandidatura: true }
+                      executar(async () => aplicar(await atualizarCandidatura(id, corpo)))
+                    }}
+                  />
+                </label>
+                {candidatura.dataCandidatura && (
+                  <button
+                    type="button"
+                    className="botao-limpar"
+                    disabled={ocupado}
+                    onClick={() =>
+                      executar(async () => aplicar(await atualizarCandidatura(id, { limparDataCandidatura: true })))
+                    }
+                  >
+                    não enviei
+                  </button>
+                )}
+              </div>
               {!candidatura.dataCandidatura && (
                 <p className="painel-fraco">Preenchida sozinha quando você move para "candidatei".</p>
               )}

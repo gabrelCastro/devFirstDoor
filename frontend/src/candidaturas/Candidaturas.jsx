@@ -189,6 +189,12 @@ function Quadros() {
     atualizarUrl(null)
   }
 
+  const naoEncontrada = useCallback(() => {
+    setAbertaId(null)
+    atualizarUrl(null)
+    setAviso({ texto: 'Essa candidatura não existe mais (talvez tenha sido excluída).', erro: true })
+  }, [])
+
   /**
    * Atualização otimista: o cartão muda de coluna na hora e volta se o servidor recusar. A volta
    * desfaz só este cartão, sem atropelar outra mudança feita enquanto a requisição corria.
@@ -344,6 +350,7 @@ function Quadros() {
           aoAtualizar={aoAtualizar}
           aoExcluir={aoExcluir}
           aoExpirar={expirar}
+          aoNaoEncontrada={naoEncontrada}
         />
       )}
 

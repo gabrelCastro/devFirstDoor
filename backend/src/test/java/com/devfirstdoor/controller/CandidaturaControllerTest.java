@@ -171,6 +171,23 @@ class CandidaturaControllerTest {
     }
 
     @Test
+    void dataDeEnvio_podeSerLimpaEDeixaDeContarComoEnviada() throws Exception {
+        long id = idDe(criar(joao, "{\"vagaId\":" + vaga.getId() + "}"));
+        atualizar(joao, id, "{\"etapa\":\"CANDIDATADO\"}")
+                .andExpect(jsonPath("$.candidatura.dataCandidatura").value(LocalDate.now().toString()));
+
+        atualizar(joao, id, "{\"etapa\":\"INTERESSE\",\"limparDataCandidatura\":true}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candidatura.etapa").value("INTERESSE"))
+                .andExpect(jsonPath("$.candidatura.dataCandidatura").isEmpty());
+        mockMvc.perform(get("/api/candidaturas/resumo").header(HttpHeaders.AUTHORIZATION, joao))
+                .andExpect(jsonPath("$.enviadas").value(0));
+
+        atualizar(joao, id, "{\"dataCandidatura\":\"2026-09-01\",\"limparDataCandidatura\":true}")
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void dadosDeVagaColetada_naoPodemSerEditados() throws Exception {
         long coletada = idDe(criar(joao, "{\"vagaId\":" + vaga.getId() + "}"));
         long externa = idDe(criar(joao, "{\"titulo\":\"Dev\",\"empresa\":\"Padaria\"}"));

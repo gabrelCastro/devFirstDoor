@@ -117,7 +117,15 @@ public class CandidaturaService {
                     link(valorOu(request.link(), candidatura.getLink())));
             candidatura.tocar(agora);
         }
-        if (request.dataCandidatura() != null) {
+        if (Boolean.TRUE.equals(request.limparDataCandidatura())) {
+            if (request.dataCandidatura() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Informe a data da candidatura ou peça para limpá-la, não os dois");
+            }
+            // Ex.: moveu para "candidatei" por engano; sem limpar, ela contaria como enviada no resumo.
+            candidatura.definirDataCandidatura(null);
+            candidatura.tocar(agora);
+        } else if (request.dataCandidatura() != null) {
             validarData(request.dataCandidatura(), agora);
             candidatura.definirDataCandidatura(request.dataCandidatura());
             candidatura.tocar(agora);

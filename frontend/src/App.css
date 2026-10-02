@@ -511,6 +511,7 @@
 }
 
 .entrada-titulo {
+  overflow-wrap: anywhere;
   font-family: var(--serif);
   font-weight: 600;
   font-size: 18px;
@@ -654,6 +655,7 @@
 /* Aviso flutuante (vaga salva no quadro) */
 
 .aviso-flutuante {
+  overflow-wrap: anywhere;
   position: fixed;
   z-index: 30;
   left: 50%;

@@ -252,6 +252,7 @@
 }
 
 .coluna {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -416,6 +417,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Títulos e empresas vêm de fora (vaga coletada ou digitada): sem espaço, quebram em qualquer ponto. */
+.cartao-titulo,
+.lista-item-titulo,
+.painel-titulo,
+.painel-empresa,
+.painel-meta,
+.encerradas-grupo li button {
+  overflow-wrap: anywhere;
 }
 
 .cartao-titulo {
@@ -595,6 +606,7 @@
 }
 
 .lista-item {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -606,6 +618,7 @@
 }
 
 .lista-item-abrir {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -682,6 +695,7 @@
 }
 
 .painel-caixa {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -858,6 +872,18 @@
 
 .painel-botao-encerrar {
   align-self: flex-start;
+}
+
+.painel-data-linha {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.painel-erro-campo {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--alerta);
 }
 
 .painel-encerrada {
