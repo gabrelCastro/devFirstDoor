@@ -16,7 +16,7 @@ export class ErroNaoAutenticado extends Error {
 /** Sessão válida, mas sem o papel exigido pela rota (403). */
 export class ErroSemPermissao extends Error {
   constructor() {
-    super('esta conta não tem acesso à área administrativa')
+    super('sua conta não tem permissão para esta ação')
     this.name = 'ErroSemPermissao'
   }
 }
@@ -74,11 +74,15 @@ export async function chamarApi(caminho, { method = 'GET', corpo, token = lerTok
   }
   const respostaCorpo = await resposta.json().catch(() => null)
   if (!resposta.ok) {
-    throw new Error(
+    const erro = new Error(
       respostaCorpo?.mensagem ??
         respostaCorpo?.detail ??
         `API respondeu com status ${resposta.status}`,
     )
+    // Quem chama às vezes precisa do resto do corpo (ex.: o id no 409 de candidatura repetida).
+    erro.status = resposta.status
+    erro.corpo = respostaCorpo
+    throw erro
   }
   return respostaCorpo
 }

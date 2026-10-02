@@ -131,10 +131,16 @@
   }
 }
 
-.botao-tema {
+.cabecalho-acoes {
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.botao-tema {
   display: grid;
   place-items: center;
   width: 32px;
@@ -599,6 +605,110 @@
   text-decoration-style: solid;
 }
 
+.entrada-acoes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Acompanhar: acima do link que cobre o card, para receber o clique. */
+.acompanhar {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px dashed var(--regua-forte);
+  border-radius: var(--radius-sm);
+  background: var(--papel);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.acompanhar:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.acompanhar:disabled {
+  cursor: progress;
+}
+
+.acompanhar-ativo {
+  border: none;
+  text-decoration: none;
+}
+
+.acompanhar-ativo:hover {
+  filter: brightness(0.95);
+}
+
+/* Aviso flutuante (vaga salva no quadro) */
+
+.aviso-flutuante {
+  position: fixed;
+  z-index: 30;
+  left: 50%;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 12px 14px 12px 16px;
+  border-left: 3px solid var(--acento);
+  border-radius: var(--radius);
+  background: var(--tinta);
+  color: var(--papel);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 18px 40px -18px rgba(5, 15, 25, 0.6);
+  transform: translateX(-50%);
+  animation: aviso-sobe 220ms ease-out;
+}
+
+.aviso-flutuante-erro {
+  border-left-color: var(--alerta);
+}
+
+.aviso-flutuante a {
+  flex: none;
+  color: var(--acento-fraco);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.aviso-flutuante button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.aviso-flutuante button:hover {
+  opacity: 1;
+}
+
+@keyframes aviso-sobe {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
 /* Skeleton de carregamento */
 
 .entrada-skeleton .entrada-corpo {
@@ -671,6 +781,11 @@
   .console {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  /* Em coluna, a base de 220px do flex viraria altura. */
+  .console-busca {
+    flex: none;
   }
 
   .abas-grupo {

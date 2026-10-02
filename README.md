@@ -96,12 +96,21 @@ Depois disso:
 
 As contas ficam na tabela `usuario`, com a senha em hash BCrypt, e têm um de dois papéis:
 
-- **`USUARIO`**: conta comum, criada pelo cadastro público. Por enquanto só acessa `/api/conta`.
-- **`ADMIN`**: acessa também a área administrativa e `/api/admin/**`.
+- **`USUARIO`**: conta comum, criada pelo cadastro público. Acompanha as próprias candidaturas.
+- **`ADMIN`**: faz o mesmo e também acessa a área administrativa e `/api/admin/**`.
 
-A autenticação usa Spring Security com HTTP Basic sem sessão: o cliente manda o header
-`Authorization` em toda requisição. O login não diferencia maiúsculas. Uma conta comum que chama
-`/api/admin/**` recebe `403`; credencial ausente, errada ou de conta desativada recebe `401`.
+### Login e sessão
+
+O site entra por `POST /api/auth/login` e recebe um token de sessão aleatório, enviado depois como
+`Authorization: Bearer <token>`. O banco guarda só o hash SHA-256 do token (tabela `sessao`); ele
+vale 30 dias (`app.sessao.duracao`), é revogado no logout e as outras sessões da conta caem quando
+a senha é trocada. O frontend guarda o token no `localStorage`, nunca a senha. Não há cookie, então
+CSRF não se aplica.
+
+O filtro de token relê a conta a cada requisição: rebaixar ou desativar alguém vale na hora, mesmo
+para tokens já emitidos. HTTP Basic continua aceito, para scripts. O login não diferencia
+maiúsculas. Uma conta comum que chama `/api/admin/**` recebe `403`; credencial ausente, errada,
+expirada ou de conta desativada recebe `401`.
 
 Ao subir, o backend cria ou sincroniza a conta de `ADMIN_USER`/`ADMIN_PASSWORD` (ativa, papel
 `ADMIN` e a senha do `.env`). O `.env` é a fonte da verdade dessa conta: trocar a senha pela API ou
@@ -111,14 +120,50 @@ partir da configuração, mas contas `ADMIN` que já existem no banco continuam 
 | Método e rota | Acesso | Uso |
 |---|---|---|
 | `POST /api/conta` | público | Cadastra `usuario` (3 a 40 caracteres: letras, números, `.`, `_`, `-`) e `senha` (8 a 72); sempre com papel `USUARIO`. `409` se o login já existir, `403` com `CADASTRO_ABERTO=false`. |
+| `POST /api/auth/login` | público | Troca `usuario` e `senha` por `{token, expiraEm, usuario}`. Falha sempre com `401` e a mesma mensagem. |
+| `POST /api/auth/logout` | qualquer conta | Revoga o token usado na requisição. |
 | `GET /api/conta` | qualquer conta | Devolve `id`, `usuario`, `papel`, `ativo` e `criadoEm`. |
-| `PUT /api/conta/senha` | qualquer conta | Troca a senha; exige `senhaAtual` e `novaSenha`. |
+| `PUT /api/conta/senha` | qualquer conta | Troca a senha (exige `senhaAtual` e `novaSenha`) e encerra as outras sessões. |
+
+## Candidaturas
+
+Em <http://localhost:3000/candidaturas> cada conta tem um quadro pessoal das vagas a que está se
+candidatando. Na página de vagas, o botão **acompanhar** coloca a vaga no quadro (sem login, ele
+abre o modal de entrar e salva a vaga logo depois); vagas já acompanhadas mostram a etapa atual.
+
+- **Etapas**: interesse → candidatei → teste técnico → entrevista → oferta. O processo termina
+  como contratado, reprovado, desisti ou sem retorno.
+- **Quadro e lista**: no desktop, colunas com arrastar e soltar; no celular (ou pela aba
+  *lista*), uma lista agrupada com seletor de etapa.
+- **Painel de detalhes**: trilho de etapas, data do envio (preenchida ao mover para *candidatei*),
+  próximo passo com data, anotações e linha do tempo das mudanças de etapa.
+- **Candidaturas externas**: vagas que o site não coletou, com título, empresa, local e link.
+- **Resumo**: em andamento, enviadas no mês, taxa de resposta, tempo médio até a primeira
+  resposta, envios por semana e quantas *pedem atenção*: paradas em *candidatei* há 14 dias ou com
+  o próximo passo vencido.
+- **Exportação** em CSV (separado por `;`, com BOM, pronto para o Excel).
+
+Cada candidatura guarda uma cópia de título, empresa, local e link: se a vaga expirar ou sair da
+fonte, ela continua no quadro, marcada como *saiu do ar*. Cada conta vê só as próprias
+candidaturas (a de outra conta responde `404`); o limite é de 500 por conta.
+
+| Método e rota | Uso |
+|---|---|
+| `GET /api/candidaturas` | Todas as candidaturas da conta, com `vagaStatus` da vaga de origem. |
+| `POST /api/candidaturas` | `{vagaId}` acompanha uma vaga coletada (`409` com o `id` existente se repetida); sem `vagaId`, cria uma externa com `titulo`, `empresa`, `local`, `link` (só `http(s)`), `etapa` e `dataCandidatura`. |
+| `GET /api/candidaturas/{id}` | Candidatura e linha do tempo (`eventos`). |
+| `PATCH /api/candidaturas/{id}` | Altera `etapa` e `dataCandidatura`; nas externas, também os dados da vaga. |
+| `PUT /api/candidaturas/{id}/proximo-passo` | Define `texto` e `data` do próximo passo; nulos limpam. |
+| `POST /api/candidaturas/{id}/notas` | Adiciona uma anotação à linha do tempo. |
+| `DELETE /api/candidaturas/{id}/notas/{notaId}` | Apaga uma anotação. |
+| `DELETE /api/candidaturas/{id}` | Exclui a candidatura e a linha do tempo. |
+| `GET /api/candidaturas/resumo` | Números do resumo e envios das últimas 12 semanas. |
+| `GET /api/candidaturas/exportar` | CSV com todas as candidaturas. |
 
 ## Área administrativa
 
-O painel fica em <http://localhost:3000/admin> e aceita qualquer conta com papel `ADMIN`. No
-frontend, a credencial fica somente no `sessionStorage` da aba e acompanha cada requisição a
-`/api/admin/**`.
+O painel fica em <http://localhost:3000/admin> e aceita qualquer conta com papel `ADMIN`. Ele usa
+a mesma sessão do site: quem entrou na página de vagas com uma conta admin já entra direto.
 
 Para criar o primeiro admin, defina no `.env` e recrie o backend:
 
@@ -162,7 +207,7 @@ as notificações desligadas.
 
 ### API administrativa
 
-Todos os endpoints abaixo exigem, via HTTP Basic, uma conta ativa com papel `ADMIN`.
+Todos os endpoints abaixo exigem uma conta ativa com papel `ADMIN` (token de sessão ou HTTP Basic).
 
 | Método e rota | Uso |
 |---|---|

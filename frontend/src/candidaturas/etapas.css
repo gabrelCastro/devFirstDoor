@@ -1,0 +1,56 @@
+/* Cor de cada etapa, reaproveitando a paleta do site. Usado com [data-etapa] no quadro e nos chips. */
+
+[data-etapa] {
+  --etapa-cor: var(--tinta-fraca);
+  --etapa-fundo: var(--papel-alt);
+}
+
+[data-etapa='CANDIDATADO'] {
+  --etapa-cor: var(--acento);
+  --etapa-fundo: var(--acento-fraco);
+}
+
+[data-etapa='TESTE_TECNICO'] {
+  --etapa-cor: var(--junior-tinta);
+  --etapa-fundo: var(--junior-bg);
+}
+
+[data-etapa='ENTREVISTA'] {
+  --etapa-cor: var(--gringa-tinta);
+  --etapa-fundo: var(--gringa-bg);
+}
+
+[data-etapa='OFERTA'],
+[data-etapa='CONTRATADO'] {
+  --etapa-cor: var(--estagio-tinta);
+  --etapa-fundo: var(--estagio-bg);
+}
+
+[data-etapa='REPROVADO'] {
+  --etapa-cor: var(--alerta);
+  --etapa-fundo: var(--alerta-fraco);
+}
+
+.chip-etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--etapa-fundo);
+  color: var(--etapa-cor);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip-etapa::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}

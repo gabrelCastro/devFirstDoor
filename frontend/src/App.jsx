@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import './candidaturas/etapas.css'
 import { useTema } from './tema'
 import { NIVEL_LABEL, ehRecente, formatarData, formatarIndice } from './utils'
 import {
@@ -9,12 +10,18 @@ import {
   IconeCalendario,
   IconeLimpar,
   IconeLua,
+  IconeMarcador,
   IconePin,
   IconeSetaExterna,
   IconeSol,
 } from './icons'
+import MenuConta from './conta/MenuConta'
+import { useSessao } from './conta/useSessao'
+import { chamarApi } from './conta/sessao'
+import { ROTULO_ETAPA, mapaPorVaga } from './candidaturas/candidaturasDados'
 
 const TAMANHO_PAGINA = 30
+const SEM_MARCACAO = new Map()
 const ATRASO_BUSCA_MS = 300
 
 function urlDaApi(caminho, parametros) {
@@ -97,6 +104,35 @@ function LinhaSkeleton({ indice }) {
   )
 }
 
+/** Fica acima do link que cobre o card (ver .entrada-titulo-link::after), por isso é clicável. */
+function Acompanhar({ vaga, acompanhada, salvando, aoAcompanhar }) {
+  if (acompanhada) {
+    return (
+      <a
+        className="acompanhar acompanhar-ativo chip-etapa"
+        data-etapa={acompanhada.etapa}
+        href={`/candidaturas?id=${acompanhada.id}`}
+        title="Abrir no quadro de candidaturas"
+      >
+        {ROTULO_ETAPA[acompanhada.etapa] ?? acompanhada.etapa}
+      </a>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className="acompanhar"
+      onClick={() => aoAcompanhar(vaga)}
+      disabled={salvando}
+      aria-busy={salvando}
+      aria-label={`Acompanhar a vaga ${vaga.titulo} em ${vaga.empresa}`}
+    >
+      <IconeMarcador tamanho={12} />
+      {salvando ? 'salvando...' : 'acompanhar'}
+    </button>
+  )
+}
+
 export default function App() {
   const [tema, alternarTema] = useTema()
   const tituloRef = useDecodificarTitulo('Dev First Door')
@@ -114,6 +150,68 @@ export default function App() {
   const [buscaAplicada, setBuscaAplicada] = useState('')
   const [secaoFiltro, setSecaoFiltro] = useState('TODAS')
   const [escopoFiltro, setEscopoFiltro] = useState('TODAS')
+  const { usuario, pedirLogin } = useSessao()
+  // vagaId → { id, etapa } das vagas que o usuário logado já acompanha.
+  const [acompanhadas, setAcompanhadas] = useState(() => new Map())
+  const [salvandoVaga, setSalvandoVaga] = useState(null)
+  const [aviso, setAviso] = useState(null)
+
+  const recarregarAcompanhadas = useCallback(async () => {
+    try {
+      setAcompanhadas(mapaPorVaga(await chamarApi('/api/candidaturas')))
+    } catch {
+      // sem a marcação a lista continua utilizável; o botão volta a funcionar no próximo login
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!usuario) return
+    let cancelado = false
+    chamarApi('/api/candidaturas')
+      .then((lista) => {
+        if (!cancelado) setAcompanhadas(mapaPorVaga(lista))
+      })
+      .catch(() => {
+        // sem a marcação a lista continua utilizável
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [usuario])
+  // Depois do logout a marcação some sem precisar limpar o estado.
+  const marcadas = usuario ? acompanhadas : SEM_MARCACAO
+
+  useEffect(() => {
+    if (!aviso) return
+    const temporizador = setTimeout(() => setAviso(null), 6000)
+    return () => clearTimeout(temporizador)
+  }, [aviso])
+
+  async function salvarVaga(vaga) {
+    setSalvandoVaga(vaga.id)
+    try {
+      const { candidatura } = await chamarApi('/api/candidaturas', { method: 'POST', corpo: { vagaId: vaga.id } })
+      setAcompanhadas((atuais) => new Map(atuais).set(vaga.id, { id: candidatura.id, etapa: candidatura.etapa }))
+      setAviso({ texto: `"${vaga.titulo}" entrou no seu quadro em interesse.`, id: candidatura.id })
+    } catch (e) {
+      // 409: já estava no quadro (ex.: salvo em outra aba). Só atualiza a marcação.
+      if (e.status === 409) await recarregarAcompanhadas()
+      else setAviso({ texto: `Não foi possível acompanhar a vaga: ${e.message}`, erro: true })
+    } finally {
+      setSalvandoVaga(null)
+    }
+  }
+
+  function acompanhar(vaga) {
+    if (usuario) {
+      salvarVaga(vaga)
+      return
+    }
+    pedirLogin({
+      motivo: `Entre para acompanhar "${vaga.titulo}" no seu quadro de candidaturas.`,
+      aoEntrar: () => salvarVaga(vaga),
+    })
+  }
 
   // Só consulta a API quando o usuário para de digitar.
   useEffect(() => {
@@ -221,15 +319,18 @@ export default function App() {
   return (
     <div className="pagina">
       <header className="cabecalho">
-        <button
-          type="button"
-          className="botao-tema"
-          onClick={alternarTema}
-          aria-label={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'}
-          title={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'}
-        >
-          {tema === 'claro' ? <IconeLua tamanho={15} /> : <IconeSol tamanho={15} />}
-        </button>
+        <div className="cabecalho-acoes">
+          <MenuConta paginaAtual="vagas" />
+          <button
+            type="button"
+            className="botao-tema"
+            onClick={alternarTema}
+            aria-label={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'}
+            title={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'}
+          >
+            {tema === 'claro' ? <IconeLua tamanho={15} /> : <IconeSol tamanho={15} />}
+          </button>
+        </div>
 
         <div className="boot" aria-hidden="true">
           <p className="boot-linha">$ conectando às fontes de vagas</p>
@@ -412,11 +513,19 @@ export default function App() {
                       <IconeCalendario tamanho={12} />
                       {formatarData(vaga.dataPublicacao)}
                     </time>
-                    {/* O bloco inteiro já é o link (pelo título); isto é só a indicação visual. */}
-                    <span className="entrada-link" aria-hidden="true">
-                      ver vaga
-                      <IconeSetaExterna tamanho={12} />
-                    </span>
+                    <div className="entrada-acoes">
+                      <Acompanhar
+                        vaga={vaga}
+                        acompanhada={marcadas.get(vaga.id)}
+                        salvando={salvandoVaga === vaga.id}
+                        aoAcompanhar={acompanhar}
+                      />
+                      {/* O bloco inteiro já é o link (pelo título); isto é só a indicação visual. */}
+                      <span className="entrada-link" aria-hidden="true">
+                        ver vaga
+                        <IconeSetaExterna tamanho={12} />
+                      </span>
+                    </div>
                   </div>
                 </div>
               </li>
@@ -442,6 +551,16 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {aviso && (
+        <div className={`aviso-flutuante ${aviso.erro ? 'aviso-flutuante-erro' : ''}`} role="status">
+          <span>{aviso.texto}</span>
+          {aviso.id && <a href={`/candidaturas?id=${aviso.id}`}>ver quadro →</a>}
+          <button type="button" onClick={() => setAviso(null)} aria-label="Fechar aviso">
+            <IconeLimpar tamanho={12} />
+          </button>
+        </div>
+      )}
 
       <footer className="rodape">
         {fontes.length > 0 && <p>{fontes.join(' · ')}</p>}

@@ -23,6 +23,9 @@ app:
   usuarios:
     # POST /api/conta cria contas com o papel USUARIO. false recusa novos cadastros (403).
     cadastro-aberto: ${CADASTRO_ABERTO:true}
+  sessao:
+    # Validade do token de login (POST /api/auth/login). O logout revoga antes disso.
+    duracao: 30d
   notificacoes:
     telegram:
       ligadas: false
