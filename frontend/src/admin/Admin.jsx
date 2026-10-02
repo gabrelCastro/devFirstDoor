@@ -3,7 +3,8 @@ import '../App.css'
 import './Admin.css'
 import { useTema } from '../tema'
 import { IconeLua, IconeSol } from '../icons'
-import { ErroNaoAutenticado, ErroSemPermissao, apagarCredencial, chamarAdmin, lerCredencial } from './api'
+import { ErroNaoAutenticado, ErroSemPermissao, chamarAdmin } from './api'
+import { lerToken, sair as encerrarSessao } from '../conta/sessao'
 import Login from './Login'
 import Painel from './Painel'
 import Historico from './Historico'
@@ -26,8 +27,8 @@ const TELAS = [
 export default function Admin() {
   const [tema, alternarTema] = useTema()
   const [usuario, setUsuario] = useState(null)
-  // Com credencial salva na sessão, valida antes de mostrar o login.
-  const [verificando, setVerificando] = useState(() => lerCredencial() != null)
+  // Com sessão salva, valida antes de mostrar o login.
+  const [verificando, setVerificando] = useState(() => lerToken() != null)
   const [tela, setTela] = useState('painel')
   const [avisoLogin, setAvisoLogin] = useState(null)
   // A tela de configuração avisa quando tem alterações não salvas, que se perderiam ao sair dela.
@@ -51,8 +52,9 @@ export default function Admin() {
       })
       .catch((e) => {
         if (cancelado) return
-        if (e instanceof ErroNaoAutenticado || e instanceof ErroSemPermissao) apagarCredencial()
-        else setAvisoLogin(e.message)
+        // 401 já apaga o token; uma conta comum continua logada no site, só não entra aqui.
+        if (e instanceof ErroSemPermissao) setAvisoLogin('Esta conta não tem acesso à área administrativa.')
+        else if (!(e instanceof ErroNaoAutenticado)) setAvisoLogin(e.message)
       })
       .finally(() => {
         if (!cancelado) setVerificando(false)
@@ -64,14 +66,13 @@ export default function Admin() {
 
   const sair = useCallback(() => {
     if (configPendente && !window.confirm('Há alterações não salvas na configuração. Descartar?')) return
-    apagarCredencial()
+    encerrarSessao()
     setUsuario(null)
     setAvisoLogin(null)
   }, [configPendente])
 
   // Qualquer 401 no meio do uso cai aqui: volta para o login avisando o motivo.
   const expirar = useCallback(() => {
-    apagarCredencial()
     setUsuario(null)
     setAvisoLogin('Sessão expirada ou credencial inválida. Entre de novo.')
   }, [])

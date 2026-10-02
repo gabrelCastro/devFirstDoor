@@ -12,7 +12,7 @@ test('envia corpo JSON com a credencial administrativa', async (t) => {
     assert.deepEqual(opcoes, {
       method: 'PUT',
       headers: {
-        Authorization: 'Basic teste',
+        Authorization: 'Bearer teste',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ intervaloColetaMinutos: 30 }),
@@ -25,7 +25,7 @@ test('envia corpo JSON com a credencial administrativa', async (t) => {
 
   const resposta = await chamarAdmin('/configuracao', {
     method: 'PUT',
-    credencial: 'Basic teste',
+    token: 'teste',
     corpo: { intervaloColetaMinutos: 30 },
   })
 
@@ -44,7 +44,7 @@ test('repassa a mensagem de validação devolvida pelo backend', async (t) => {
     })
 
   await assert.rejects(
-    chamarAdmin('/configuracao', { method: 'PUT', credencial: 'Basic teste', corpo: {} }),
+    chamarAdmin('/configuracao', { method: 'PUT', token: 'teste', corpo: {} }),
     /O intervalo deve ser de pelo menos 30 minutos/,
   )
 })
@@ -69,5 +69,5 @@ test('conta sem papel ADMIN vira ErroSemPermissao', async (t) => {
   })
   globalThis.fetch = async () => new Response(null, { status: 403 })
 
-  await assert.rejects(chamarAdmin('/me', { credencial: 'Basic teste' }), ErroSemPermissao)
+  await assert.rejects(chamarAdmin('/me', { token: 'teste' }), ErroSemPermissao)
 })

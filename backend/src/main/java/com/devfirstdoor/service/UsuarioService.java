@@ -5,6 +5,7 @@ import com.devfirstdoor.controller.dto.AtualizacaoUsuarioAdminRequest;
 import com.devfirstdoor.controller.dto.UsuarioResponse;
 import com.devfirstdoor.domain.Papel;
 import com.devfirstdoor.domain.Usuario;
+import com.devfirstdoor.repository.SessaoRepository;
 import com.devfirstdoor.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,14 +32,17 @@ public class UsuarioService {
     private static final Sort ORDEM = Sort.by(Sort.Order.asc("login"));
 
     private final UsuarioRepository usuarioRepository;
+    private final SessaoRepository sessaoRepository;
     private final PasswordEncoder passwordEncoder;
     private final AdminProperties adminProperties;
     private final boolean cadastroAberto;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
+    public UsuarioService(UsuarioRepository usuarioRepository, SessaoRepository sessaoRepository,
+                          PasswordEncoder passwordEncoder,
                           AdminProperties adminProperties,
                           @Value("${app.usuarios.cadastro-aberto:true}") boolean cadastroAberto) {
         this.usuarioRepository = usuarioRepository;
+        this.sessaoRepository = sessaoRepository;
         this.passwordEncoder = passwordEncoder;
         this.adminProperties = adminProperties;
         this.cadastroAberto = cadastroAberto;
@@ -75,14 +79,16 @@ public class UsuarioService {
         return UsuarioResponse.from(encontrar(login));
     }
 
+    /** Troca a senha e revoga as sessões da conta, menos {@code manterSessaoId} (a que fez o pedido). */
     @Transactional
-    public void trocarSenha(String login, String senhaAtual, String novaSenha) {
+    public void trocarSenha(String login, String senhaAtual, String novaSenha, Long manterSessaoId) {
         Usuario usuario = encontrar(login);
         if (!passwordEncoder.matches(senhaAtual, usuario.getSenhaHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A senha atual está incorreta");
         }
         validarTamanhoSenha(novaSenha);
         usuario.trocarSenha(passwordEncoder.encode(novaSenha));
+        sessaoRepository.revogarOutras(usuario.getId(), manterSessaoId);
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +138,8 @@ public class UsuarioService {
         }
         if (!passwordEncoder.matches(senha, admin.getSenhaHash())) {
             admin.trocarSenha(passwordEncoder.encode(senha));
+            // Senha nova no .env: quem estava logado com a antiga precisa entrar de novo.
+            sessaoRepository.revogarOutras(admin.getId(), null);
         }
         admin.alterarPapel(Papel.ADMIN);
         admin.alterarAtivo(true);

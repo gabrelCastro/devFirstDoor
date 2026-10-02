@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ErroNaoAutenticado, ErroSemPermissao, chamarAdmin, montarCredencial, salvarCredencial } from './api'
+import { ErroSemPermissao, chamarAdmin } from './api'
+import { entrar } from '../conta/sessao'
 
 export default function Login({ aoEntrar, aviso }) {
   const [usuario, setUsuario] = useState('')
@@ -11,16 +12,14 @@ export default function Login({ aoEntrar, aviso }) {
     evento.preventDefault()
     setEnviando(true)
     setErro(null)
-    const credencial = montarCredencial(usuario, senha)
     try {
-      const dados = await chamarAdmin('/me', { credencial })
-      salvarCredencial(credencial)
+      await entrar(usuario, senha)
+      // O login vale para qualquer conta; aqui só entra quem tem o papel ADMIN.
+      const dados = await chamarAdmin('/me')
       setSenha('')
       aoEntrar(dados.usuario)
     } catch (e) {
-      if (e instanceof ErroNaoAutenticado) setErro('Usuário ou senha incorretos, ou conta desativada.')
-      else if (e instanceof ErroSemPermissao) setErro('Esta conta não tem acesso à área administrativa.')
-      else setErro(e.message)
+      setErro(e instanceof ErroSemPermissao ? 'Esta conta não tem acesso à área administrativa.' : e.message)
     } finally {
       setEnviando(false)
     }

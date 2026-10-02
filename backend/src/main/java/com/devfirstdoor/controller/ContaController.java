@@ -1,5 +1,6 @@
 package com.devfirstdoor.controller;
 
+import com.devfirstdoor.config.SessaoAutenticada;
 import com.devfirstdoor.controller.dto.CadastroRequest;
 import com.devfirstdoor.controller.dto.TrocaSenhaRequest;
 import com.devfirstdoor.controller.dto.UsuarioResponse;
@@ -37,9 +38,11 @@ public class ContaController {
         return usuarioService.buscar(authentication.getName());
     }
 
+    /** Troca a senha e encerra as outras sessões da conta; a sessão usada aqui continua valendo. */
     @PutMapping("/senha")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void trocarSenha(Authentication authentication, @Valid @RequestBody TrocaSenhaRequest request) {
-        usuarioService.trocarSenha(authentication.getName(), request.senhaAtual(), request.novaSenha());
+        Long sessaoAtual = authentication.getDetails() instanceof SessaoAutenticada sessao ? sessao.sessaoId() : null;
+        usuarioService.trocarSenha(authentication.getName(), request.senhaAtual(), request.novaSenha(), sessaoAtual);
     }
 }
